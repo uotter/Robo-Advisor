@@ -167,13 +167,13 @@ def getCombinationProfit(fundpercent, fundprofit, combinationname):
     fund2profit = fundprofit["fund2"]
     fund3profit = fundprofit["fund3"]
     comprofit = pd.DataFrame(np.zeros((len(depsoitprofit.index.tolist()), 1)), index=depsoitprofit.index.tolist(),
-                             columns=[combinationname + "combination_profit"])
+                             columns=[combinationname + "-combination_profit"])
     for index, row in depsoitprofit.iterrows():
         depsoitpart = depsoitpercent * depsoitprofit.loc[index, "depsoit_rate"]
         fund1part = fund1percent * fund1profit.loc[index, "dailyProfit"]
         fund2part = fund2percent * fund2profit.loc[index, "dailyProfit"]
         fund3part = fund3percent * fund3profit.loc[index, "dailyProfit"]
-        comprofit.loc[index, combinationname + "combination_profit"] = depsoitpart + fund1part + fund2part + fund3part
+        comprofit.loc[index, combinationname + "-combination_profit"] = depsoitpart + fund1part + fund2part + fund3part
     return comprofit
 
 
@@ -189,7 +189,7 @@ def getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, f
     fund2profit = fundprofit["fund2"]
     fund3profit = fundprofit["fund3"]
     comprofit = pd.DataFrame(np.zeros((len(depsoitprofit.index.tolist()), 1)), index=depsoitprofit.index.tolist(),
-                             columns=[combinationname + "combination_profit"])
+                             columns=[combinationname + "-combination_profit"])
     fund1_month_total = 0
     fund2_month_total = 0
     fund3_month_total = 0
@@ -210,7 +210,7 @@ def getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, f
             fund2part = fund2percent * fund2profit.loc[index, "dailyProfit"]
             fund3part = fund3percent * fund3profit.loc[index, "dailyProfit"]
             comprofit.loc[
-                index, combinationname + "combination_profit"] = depsoitpart + fund1part + fund2part + fund3part
+                index, combinationname + "-combination_profit"] = depsoitpart + fund1part + fund2part + fund3part
         else:
             fund1_month_total += fund1profit.loc[index, "dailyProfit"]
             fund2_month_total += fund2profit.loc[index, "dailyProfit"]
@@ -220,7 +220,7 @@ def getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, f
             fund2part = fund2percent * fund2profit.loc[index, "dailyProfit"]
             fund3part = fund3percent * fund3profit.loc[index, "dailyProfit"]
             comprofit.loc[
-                index, combinationname + "combination_profit"] = depsoitpart + fund1part + fund2part + fund3part
+                index, combinationname + "-combination_profit"] = depsoitpart + fund1part + fund2part + fund3part
     return comprofit
 
 

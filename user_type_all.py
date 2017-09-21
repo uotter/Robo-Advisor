@@ -57,6 +57,9 @@ compare = compare.join(fund2["dailyProfit"])
 compare.rename(columns={"dailyProfit": "基金2"}, inplace=True)
 compare = compare.join(fund3["dailyProfit"])
 compare.rename(columns={"dailyProfit": "基金3"}, inplace=True)
+year_rate_fund1 = rl.year_rate(fund1, startday_str, endday_str, "dailyProfit", format="%Y-%m-%d")
+year_rate_fund2 = rl.year_rate(fund2, startday_str, endday_str, "dailyProfit", format="%Y-%m-%d")
+year_rate_fund3 = rl.year_rate(fund3, startday_str, endday_str, "dailyProfit", format="%Y-%m-%d")
 for index, row in user_type_percent.iterrows():
     print("开始处理第" + str(index) + "个")
     user_type_str = row["客户风险能力类型"] + "-" + row["新老客户种类"] + "-" + row["性别"]
@@ -71,15 +74,18 @@ for index, row in user_type_percent.iterrows():
     backtesting_df.loc[index, "客户风险能力类型"] = row["客户风险能力类型"]
     backtesting_df.loc[index, "新老客户种类"] = row["新老客户种类"]
     backtesting_df.loc[index, "性别"] = row["性别"]
+    backtesting_df.loc[index, "基金1"] = year_rate_fund1
+    backtesting_df.loc[index, "基金2"] = year_rate_fund2
+    backtesting_df.loc[index, "基金3"] = year_rate_fund3
     print("开始计算第" + str(index) + "个的回撤及收益")
     combination_fix = rl.getCombinationProfit(fundpercent, fundprofit, user_type_str_fix)
     # maxdown_fix = rl.getMaxdown(base_yearrate, combination_fix, startday_str, endday_str)
     combination_dyn = rl.getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, fundprofit,
                                                                                        user_type_str_dyn)
     # maxdown_dyn = rl.getMaxdown(base_yearrate, combination_dyn, startday_str, endday_str)
-    year_rate_fix = rl.year_rate(combination_fix, startday_str, endday_str, user_type_str_fix + "combination_profit",
+    year_rate_fix = rl.year_rate(combination_fix, startday_str, endday_str, user_type_str_fix + "-combination_profit",
                                  format="%Y-%m-%d")
-    year_rate_dyn = rl.year_rate(combination_dyn, startday_str, endday_str, user_type_str_dyn + "combination_profit",
+    year_rate_dyn = rl.year_rate(combination_dyn, startday_str, endday_str, user_type_str_dyn + "-combination_profit",
                                  format="%Y-%m-%d")
     # backtesting_df.loc[index, "(固定基金比例)最大回撤"] = maxdown_fix
     backtesting_df.loc[index, "(固定基金比例)平均年化利率"] = year_rate_fix
@@ -88,11 +94,11 @@ for index, row in user_type_percent.iterrows():
     fund1
     if filter_str in user_type_str_fix or filter_str == "all":
         if compare.empty:
-            compare = pd.DataFrame(combination_fix[user_type_str_fix + "combination_profit"])
-            compare = compare.join(combination_dyn[user_type_str_dyn + "combination_profit"])
+            compare = pd.DataFrame(combination_fix[user_type_str_fix + "-combination_profit"])
+            compare = compare.join(combination_dyn[user_type_str_dyn + "-combination_profit"])
         else:
-            compare = compare.join(combination_fix[user_type_str_fix + "combination_profit"])
-            compare = compare.join(combination_dyn[user_type_str_dyn + "combination_profit"])
+            compare = compare.join(combination_fix[user_type_str_fix + "-combination_profit"])
+            compare = compare.join(combination_dyn[user_type_str_dyn + "-combination_profit"])
 print(backtesting_df)
 backtesting_df.to_csv(result_path_csv, sep=',', header=True, index=True)
 compare.to_csv(compare_path_csv, sep=',', header=True, index=True)
