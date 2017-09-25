@@ -146,7 +146,7 @@ def getMaxdown(base_yearrate, combination, start, end):
     for i in range(0, len(datelist)):
         for j in range(i, len(datelist)):
             base_benefit = base_dayprofit['depsoit_rate'][i:j].sum()
-            combination_benefit = combination['combination_profit'][i:j].sum()
+            combination_benefit = combination['-combination_profit'][i:j].sum()
             if combination_benefit > 0:
                 benefit_rel = combination_benefit - base_benefit
                 down = benefit_rel / base_benefit

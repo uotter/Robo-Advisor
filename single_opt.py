@@ -43,9 +43,9 @@ base_dayprofit = rl.yearrate_to_dayprofit(base_yearrate)
 compare = pd.DataFrame()
 fundpercent = {"depsoit": 0.2, "fund1": 0.21, "fund2": 0.27, "fund3": 0.32}
 fundprofit = {"depsoit": base_dayprofit, "fund1": fund1, "fund2": fund2, "fund3": fund3}
-combination = rl.getCombinationProfit(fundpercent, fundprofit)
+combination = rl.getCombinationProfit(fundpercent, fundprofit,"")
 combination_changeby_weekcount_weekday_profitpercent = rl.getCombinationProfit_changeby_weekcount_weekday_profitpercent(
-    fundpercent, fundprofit)
+    fundpercent, fundprofit,"")
 
 # 绘制该组合每日波动情况与基本各情况的图示
 compare = combination.join(base_dayprofit)
@@ -55,9 +55,9 @@ compare = combination.join(base_dayprofit)
 # compare.rename(columns={"dailyProfit": "基金2"}, inplace=True)
 # compare = compare.join(fund3["dailyProfit"])
 # compare.rename(columns={"dailyProfit": "基金3"}, inplace=True)
-compare.rename(columns={"combination_profit": "组合理财(固定基金比例)", "depsoit_rate": "浮动存款"}, inplace=True)
+compare.rename(columns={"-combination_profit": "组合理财(固定基金比例)", "depsoit_rate": "浮动存款"}, inplace=True)
 compare = compare.join(combination_changeby_weekcount_weekday_profitpercent)
-compare.rename(columns={"combination_profit": "组合理财(按月调整基金比例)"}, inplace=True)
+compare.rename(columns={"-combination_profit": "组合理财(按月调整基金比例)"}, inplace=True)
 compare.plot(title=u"C5-新客户-男")
 
 # 计算并输出该组合最大回撤
@@ -65,10 +65,10 @@ print("组合理财(固定基金比例)最大回撤" + ": " + str(rl.getMaxdown(
 print("组合理财(按月调整基金比例)最大回撤" + ": " + str(
     rl.getMaxdown(base_yearrate, combination_changeby_weekcount_weekday_profitpercent, startday_str, endday_str)))
 # 计算并输出该组合年化利率
-year_rate_outside = rl.year_rate(combination, startday_str, endday_str, "combination_profit", format="%Y-%m-%d")
+year_rate_outside = rl.year_rate(combination, startday_str, endday_str, "-combination_profit", format="%Y-%m-%d")
 print("组合理财(固定基金比例)平均年化利率" + ": " + str(year_rate_outside) + "%")
 year_rate_outside = rl.year_rate(combination_changeby_weekcount_weekday_profitpercent, startday_str, endday_str,
-                              "combination_profit", format="%Y-%m-%d")
+                              "-combination_profit", format="%Y-%m-%d")
 print("组合理财(按月调整基金比例)平均年化利率" + ": " + str(year_rate_outside) + "%")
 plt.show()
 
