@@ -29,7 +29,7 @@ def get_date_by_year_month_weekcount_weekday(year, month, weekcount, weekday):
         返回某年某月第几周星期几是具体哪个日期
         返回格式 : 2017-08-15 or False
     """
-    weekday = weekday-1
+    weekday = weekday - 1
     month_info = calendar.month(year, month)
     s = month_info.split('\n')[2:]
     week = s[weekcount - 1]
@@ -70,9 +70,20 @@ def getholidaydic(yearlist):
 
 
 # 将年利率形式的收益表示为每天万份收益的表示形式
-def yearrate_to_dayprofit(yearrate):
-    dayrate = yearrate / 365
-    return dayrate * 10000
+def yearrate_to_dayprofit(yearrate, columnname, percentorreal):
+    if columnname == "single_number":
+        dayrate = yearrate / 365
+        return dayrate * 10000
+    else:
+        for index, row in yearrate.iterrows():
+            year_rate_daily = yearrate.loc[index, columnname]
+            if percentorreal == "percent":
+                dailyprofit = ((year_rate_daily / 365) * 10000) / 100
+                yearrate.loc[index, columnname] = dailyprofit
+            else:
+                dailyprofit = (year_rate_daily / 365) * 10000
+                yearrate.loc[index, columnname] = dailyprofit
+        return yearrate
 
 
 def getLastDayProfit(date, fund, format="%Y-%m-%d"):
@@ -84,6 +95,21 @@ def getLastDayProfit(date, fund, format="%Y-%m-%d"):
         if count > len(fund.index.tolist()):
             return 0.0, 0.0, "0"
     return fund.at[date, "dailyProfit"], fund.at[date, "weeklyYield"], date
+
+
+def getLastDayProfitbyList(date, fund, columnlist, format="%Y-%m-%d"):
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    count = 0
+    returnlist = []
+    while date not in fund.index.tolist():
+        date = strftime(strptime(date, format) + datetime.timedelta(days=-1), format)
+        count += 1
+        if count > len(fund.index.tolist()):
+            return 0.0, 0.0, "0"
+    for columnname in columnlist:
+        returnlist.append(fund.at[date, columnname])
+    returnlist.append(date)
+    return returnlist
 
 
 def smoothfund(holidaydf, fund):
@@ -123,6 +149,24 @@ def fillFund(datelist, fund):
     return fund
 
 
+def fillDepsoit(start, end, depsoitdf, columnname):
+    datelist = dateRange(start, end)
+    for date in datelist:
+        insertrow = pd.DataFrame(
+            columns=["O/N", columnname, "2W", "1M", "3M", "6M", "9M"],
+            index=[date])
+        if date not in depsoitdf.index.tolist():
+            dailyDepsoitrate = getLastDayProfitbyList(date, depsoitdf, [columnname], format="%Y-%m-%d")
+            depsoit_rate = dailyDepsoitrate[0]
+            lastdate = dailyDepsoitrate[1]
+            if lastdate != "0":
+                insertrow.at[date, columnname] = depsoit_rate
+            else:
+                insertrow.at[date, columnname] = 0.0
+            depsoitdf = pd.concat([depsoitdf, insertrow], ignore_index=False)
+    return depsoitdf
+
+
 def getRandomDepsoit(start, end):
     datelist = dateRange(start, end)
     days = len(datelist)
@@ -139,14 +183,14 @@ def getConstantDepsoit(start, end, constant):
     return df
 
 
-def getMaxdown(base_yearrate, combination, start, end):
+def getMaxdown(base_yearrate, combination, start, end,user_type_str):
     datelist = dateRange(start, end)
-    base_dayprofit = yearrate_to_dayprofit(base_yearrate)
+    base_dayprofit = yearrate_to_dayprofit(base_yearrate,"depsoit_rate","percent")
     maxdown = 0
     for i in range(0, len(datelist)):
         for j in range(i, len(datelist)):
             base_benefit = base_dayprofit['depsoit_rate'][i:j].sum()
-            combination_benefit = combination['-combination_profit'][i:j].sum()
+            combination_benefit = combination[user_type_str+'-combination_profit'][i:j].sum()
             if combination_benefit > 0:
                 benefit_rel = combination_benefit - base_benefit
                 down = benefit_rel / base_benefit

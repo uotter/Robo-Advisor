@@ -25,9 +25,12 @@ result_path_csv = r"F:\Code\Robo-Advisor\result\zengjinbao_result.csv"
 result_path_html = r"F:\Code\Robo-Advisor\result\zengjinbao_result.html"
 compare_path_csv = r"F:\Code\Robo-Advisor\result\zengjinbao_result_compare.csv"
 holiday_path = r"F:\Code\Robo-Advisor\usefuldata\holidays.csv"
+shibor_path = r"F:\Code\Robo-Advisor\history_data\Shibor.csv"
+
 fund1 = pd.read_csv(fund1_path).set_index("endDate")
 fund2 = pd.read_csv(fund2_path).set_index("endDate")
 fund3 = pd.read_csv(fund3_path).set_index("endDate")
+shibor = pd.read_csv(shibor_path).set_index("date")
 user_type_percent = pd.read_csv(user_type_percent_path)
 
 startday_str = "2017-01-01"
@@ -43,10 +46,13 @@ fund2 = rl.smoothfund(holidays, fund2)
 fund3 = rl.smoothfund(holidays, fund3)
 # 活期存款利率
 depsoit_current_rate = 0.0035
-# 活期存款日万份收益序列计算
 profit_rate = rl.getConstantDepsoit(startday_str, endday_str, depsoit_current_rate)
-base_yearrate = profit_rate
-base_dayprofit = rl.yearrate_to_dayprofit(base_yearrate)
+# shibor作为活期存款
+sort_date_shibor = (rl.fillDepsoit(startday_str,endday_str,shibor,"depsoit_rate")).sort_index()
+sort_date_shibor.loc["2017-01-01","depsoit_rate"] = 2.589
+sort_date_shibor.loc["2017-01-02","depsoit_rate"] = 2.589
+base_yearrate = sort_date_shibor
+base_dayprofit = rl.yearrate_to_dayprofit(base_yearrate,"depsoit_rate","percent")
 
 backtesting_df = pd.DataFrame(
     columns=["客户风险能力类型", "新老客户种类", "性别", "(固定基金比例)最大回撤", "(固定基金比例)平均年化利率", "(按月调整基金比例)最大回撤", "(按月调整基金比例)平均年化利率"])
@@ -79,10 +85,10 @@ for index, row in user_type_percent.iterrows():
     backtesting_df.loc[index, "基金3"] = year_rate_fund3
     print("开始计算第" + str(index) + "个的回撤及收益")
     combination_fix = rl.getCombinationProfit(fundpercent, fundprofit, user_type_str_fix)
-    # maxdown_fix = rl.getMaxdown(base_yearrate, combination_fix, startday_str, endday_str)
+    # maxdown_fix = rl.getMaxdown(base_yearrate, combination_fix, startday_str, endday_str,user_type_str_fix)
     combination_dyn = rl.getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, fundprofit,
                                                                                        user_type_str_dyn)
-    # maxdown_dyn = rl.getMaxdown(base_yearrate, combination_dyn, startday_str, endday_str)
+    # maxdown_dyn = rl.getMaxdown(base_yearrate, combination_dyn, startday_str, endday_str, user_type_str_dyn)
     year_rate_fix = rl.year_rate(combination_fix, startday_str, endday_str, user_type_str_fix + "-combination_profit",
                                  format="%Y-%m-%d")
     year_rate_dyn = rl.year_rate(combination_dyn, startday_str, endday_str, user_type_str_dyn + "-combination_profit",

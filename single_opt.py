@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from pylab import *
 import calendar
 import robolib as rl
+import tushare as ts
 
 # 设置绘图中所用的中文字体
 mpl.rcParams['font.sans-serif'] = ['simhei']
@@ -20,9 +21,11 @@ mpl.rcParams['font.sans-serif'] = ['simhei']
 fund1_path = r"F:\Code\Robo-Advisor\history_data\fund1.txt"
 fund2_path = r"F:\Code\Robo-Advisor\history_data\fund2.txt"
 fund3_path = r"F:\Code\Robo-Advisor\history_data\fund3.txt"
+shibor_path = r"F:\Code\Robo-Advisor\history_data\Shibor.csv"
 fund1 = pd.read_csv(fund1_path).set_index("endDate")
 fund2 = pd.read_csv(fund2_path).set_index("endDate")
 fund3 = pd.read_csv(fund3_path).set_index("endDate")
+shibor = pd.read_csv(shibor_path).set_index("date")
 
 startday_str = "2017-01-01"
 endday_str = "2017-08-31"
@@ -38,7 +41,7 @@ depsoit_current_rate = 0.0035
 # 活期存款日万份收益序列计算
 profit_rate = rl.getConstantDepsoit(startday_str, endday_str, depsoit_current_rate)
 base_yearrate = profit_rate
-base_dayprofit = rl.yearrate_to_dayprofit(base_yearrate)
+base_dayprofit = rl.yearrate_to_dayprofit(base_yearrate,"single_number","")
 
 compare = pd.DataFrame()
 fundpercent = {"depsoit": 0.2, "fund1": 0.21, "fund2": 0.27, "fund3": 0.32}
@@ -49,12 +52,12 @@ combination_changeby_weekcount_weekday_profitpercent = rl.getCombinationProfit_c
 
 # 绘制该组合每日波动情况与基本各情况的图示
 compare = combination.join(base_dayprofit)
-# compare = compare.join(fund1["dailyProfit"])
-# compare.rename(columns={"dailyProfit": "基金1"}, inplace=True)
-# compare = compare.join(fund2["dailyProfit"])
-# compare.rename(columns={"dailyProfit": "基金2"}, inplace=True)
-# compare = compare.join(fund3["dailyProfit"])
-# compare.rename(columns={"dailyProfit": "基金3"}, inplace=True)
+compare = compare.join(fund1["dailyProfit"])
+compare.rename(columns={"dailyProfit": "基金1"}, inplace=True)
+compare = compare.join(fund2["dailyProfit"])
+compare.rename(columns={"dailyProfit": "基金2"}, inplace=True)
+compare = compare.join(fund3["dailyProfit"])
+compare.rename(columns={"dailyProfit": "基金3"}, inplace=True)
 compare.rename(columns={"-combination_profit": "组合理财(固定基金比例)", "depsoit_rate": "浮动存款"}, inplace=True)
 compare = compare.join(combination_changeby_weekcount_weekday_profitpercent)
 compare.rename(columns={"-combination_profit": "组合理财(按月调整基金比例)"}, inplace=True)
