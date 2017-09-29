@@ -272,8 +272,10 @@ def year_rate(combination, start, end, profit_name, format="%Y-%m-%d"):
     strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
     days = (strptime(end, format) - strptime(start, format)).days
     profit_total = 0
+    combination = combination.sort_index()
     for index, row in combination.iterrows():
-        profit_total = profit_total + combination.loc[index, profit_name]
+        if strptime(end, format) >strptime(index, format):
+            profit_total = profit_total + combination.loc[index, profit_name]
     year_rate_value = (profit_total / 100.0) / (days / 365.0)
     return year_rate_value
 
