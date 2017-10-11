@@ -23,9 +23,11 @@ fund3_path = r"F:\Code\Robo-Advisor\history_data\fund3.txt"
 user_type_percent_path = r"F:\Code\Robo-Advisor\initial_percent\zengjinbao_v3_for_machine.csv"
 result_path_csv = r"F:\Code\Robo-Advisor\result\zengjinbao_result.csv"
 result_path_html = r"F:\Code\Robo-Advisor\result\zengjinbao_result.html"
+percent_path_csv = r"F:\Code\Robo-Advisor\result\percent_result.csv"
 compare_path_csv = r"F:\Code\Robo-Advisor\result\zengjinbao_result_compare.csv"
 holiday_path = r"F:\Code\Robo-Advisor\usefuldata\holidays.csv"
 shibor_path = r"F:\Code\Robo-Advisor\history_data\Shibor.csv"
+
 
 fund1 = pd.read_csv(fund1_path).set_index("endDate")
 fund2 = pd.read_csv(fund2_path).set_index("endDate")
@@ -48,15 +50,17 @@ fund3 = rl.smoothfund(holidays, fund3)
 depsoit_current_rate = 0.0035
 profit_rate = rl.getConstantDepsoit(startday_str, endday_str, depsoit_current_rate)
 # shibor作为活期存款
-sort_date_shibor = (rl.fillDepsoit(startday_str,endday_str,shibor,"depsoit_rate")).sort_index()
-sort_date_shibor.loc["2017-01-01","depsoit_rate"] = 2.589
-sort_date_shibor.loc["2017-01-02","depsoit_rate"] = 2.589
+sort_date_shibor = (rl.fillDepsoit(startday_str, endday_str, shibor, "depsoit_rate")).sort_index()
+sort_date_shibor.loc["2017-01-01", "depsoit_rate"] = 2.589
+sort_date_shibor.loc["2017-01-02", "depsoit_rate"] = 2.589
 base_yearrate = sort_date_shibor
-base_dayprofit = rl.yearrate_to_dayprofit(base_yearrate,"depsoit_rate","percent")
+base_dayprofit = rl.yearrate_to_dayprofit(base_yearrate, "depsoit_rate", "percent")
 
 backtesting_df = pd.DataFrame(
     columns=["客户风险能力类型", "新老客户种类", "性别", "(固定基金比例)最大回撤", "(固定基金比例)平均年化利率", "(按月调整基金比例)最大回撤", "(按月调整基金比例)平均年化利率"])
-
+percent_type = pd.DataFrame(
+    columns=["客户风险能力类型", "新老客户种类", "性别"])
+percent_frame = pd.DataFrame()
 compare = pd.DataFrame(fund1["dailyProfit"])
 compare.rename(columns={"dailyProfit": "基金1"}, inplace=True)
 compare = compare.join(fund2["dailyProfit"])
@@ -83,11 +87,26 @@ for index, row in user_type_percent.iterrows():
     backtesting_df.loc[index, "基金1"] = year_rate_fund1
     backtesting_df.loc[index, "基金2"] = year_rate_fund2
     backtesting_df.loc[index, "基金3"] = year_rate_fund3
+
+
     print("开始计算第" + str(index) + "个的回撤及收益")
     combination_fix = rl.getCombinationProfit(fundpercent, fundprofit, user_type_str_fix)
     # maxdown_fix = rl.getMaxdown(base_yearrate, combination_fix, startday_str, endday_str,user_type_str_fix)
-    combination_dyn = rl.getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, fundprofit,
+    combination_dyn,percent_detail = rl.getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, fundprofit,
                                                                                        user_type_str_dyn)
+    # 对配置比例的情况填充相应的用户分类数据内容
+    percent_type.drop(percent_type.index, inplace=True)
+    lines = len(percent_detail)
+    for i in range(lines):
+        temp_df = pd.DataFrame([[row["客户风险能力类型"], row["新老客户种类"], row["性别"]]], columns=["客户风险能力类型", "新老客户种类", "性别"])
+        if percent_type.empty:
+            percent_type = temp_df
+        else:
+            percent_type = pd.concat([percent_type, temp_df])
+    if percent_frame.empty:
+        percent_frame = pd.concat([percent_type,percent_detail],axis=1)
+    else:
+        percent_frame = percent_frame.append(pd.concat([percent_type,percent_detail],axis=1))
     # maxdown_dyn = rl.getMaxdown(base_yearrate, combination_dyn, startday_str, endday_str, user_type_str_dyn)
     year_rate_fix = rl.year_rate(combination_fix, startday_str, endday_str, user_type_str_fix + "-combination_profit",
                                  format="%Y-%m-%d")
@@ -97,7 +116,7 @@ for index, row in user_type_percent.iterrows():
     backtesting_df.loc[index, "(固定基金比例)平均年化利率"] = year_rate_fix
     # backtesting_df.loc[index, "(按月调整基金比例)最大回撤"] = maxdown_dyn
     backtesting_df.loc[index, "(按月调整基金比例)平均年化利率"] = year_rate_dyn
-    fund1
+
     if filter_str in user_type_str_fix or filter_str == "all":
         if compare.empty:
             compare = pd.DataFrame(combination_fix[user_type_str_fix + "-combination_profit"])
@@ -108,3 +127,5 @@ for index, row in user_type_percent.iterrows():
 print(backtesting_df)
 backtesting_df.to_csv(result_path_csv, sep=',', header=True, index=True)
 compare.to_csv(compare_path_csv, sep=',', header=True, index=True)
+backtesting_df.to_csv(result_path_csv, sep=',', header=True, index=True)
+percent_frame.to_csv(percent_path_csv, sep=',', header=True, index=True)

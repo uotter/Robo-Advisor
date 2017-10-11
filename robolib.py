@@ -40,6 +40,20 @@ def get_date_by_year_month_weekcount_weekday(year, month, weekcount, weekday):
         return "%s-%02d-%02d" % (year, month, int(day))
 
 
+def getNetWorthFromDailyProfit(funds):
+    '''
+        从基金数据的日万份收益计算器净值，以方便后续计算对数收益率,由于使用了万份净值，初始净值按照一万分计算
+    '''
+    returnpd = funds.copy(deep=True)
+    nod = len(funds)
+    for i in range(nod):
+        temp = 0
+        for j in range(i+1):
+            temp = temp + funds.ix[j]
+        returnpd.ix[i] = temp
+    return returnpd + 10000
+
+
 def allweeks(year):
     '''计算一年内所有周的具体日期,从1月1号开始，12.31号结束
     输出如{1: ['2019-01-01','2019-01-06'],...} 只有六天
@@ -183,14 +197,19 @@ def getConstantDepsoit(start, end, constant):
     return df
 
 
-def getMaxdown(base_yearrate, combination, start, end,user_type_str):
+def getSigma():
+    sigma = 0
+    return sigma
+
+
+def getMaxdown(base_yearrate, combination, start, end, user_type_str):
     datelist = dateRange(start, end)
-    base_dayprofit = yearrate_to_dayprofit(base_yearrate,"depsoit_rate","percent")
+    base_dayprofit = yearrate_to_dayprofit(base_yearrate, "depsoit_rate", "percent")
     maxdown = 0
     for i in range(0, len(datelist)):
         for j in range(i, len(datelist)):
             base_benefit = base_dayprofit['depsoit_rate'][i:j].sum()
-            combination_benefit = combination[user_type_str+'-combination_profit'][i:j].sum()
+            combination_benefit = combination[user_type_str + '-combination_profit'][i:j].sum()
             if combination_benefit > 0:
                 benefit_rel = combination_benefit - base_benefit
                 down = benefit_rel / base_benefit
@@ -234,6 +253,11 @@ def getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, f
     fund3profit = fundprofit["fund3"]
     comprofit = pd.DataFrame(np.zeros((len(depsoitprofit.index.tolist()), 1)), index=depsoitprofit.index.tolist(),
                              columns=[combinationname + "-combination_profit"])
+    percent_detail = pd.DataFrame(
+        columns=["存款比例", "基金1比例", "基金2比例", "基金3比例"])
+    temp_df = pd.DataFrame([[depsoitpercent, fund1percent, fund2percent, fund3percent]],
+                           columns=["存款比例", "基金1比例", "基金2比例", "基金3比例"])
+    percent_detail = temp_df
     fund1_month_total = 0
     fund2_month_total = 0
     fund3_month_total = 0
@@ -253,6 +277,12 @@ def getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, f
             fund1part = fund1percent * fund1profit.loc[index, "dailyProfit"]
             fund2part = fund2percent * fund2profit.loc[index, "dailyProfit"]
             fund3part = fund3percent * fund3profit.loc[index, "dailyProfit"]
+            temp_df = pd.DataFrame([[depsoitpercent, fund1percent, fund2percent, fund3percent]],
+                                   columns=["存款比例", "基金1比例", "基金2比例", "基金3比例"])
+            if percent_detail.empty:
+                percent_detail = temp_df
+            else:
+                percent_detail = pd.concat([percent_detail, temp_df])
             comprofit.loc[
                 index, combinationname + "-combination_profit"] = depsoitpart + fund1part + fund2part + fund3part
         else:
@@ -265,7 +295,7 @@ def getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, f
             fund3part = fund3percent * fund3profit.loc[index, "dailyProfit"]
             comprofit.loc[
                 index, combinationname + "-combination_profit"] = depsoitpart + fund1part + fund2part + fund3part
-    return comprofit
+    return comprofit, percent_detail
 
 
 def year_rate(combination, start, end, profit_name, format="%Y-%m-%d"):
@@ -274,7 +304,7 @@ def year_rate(combination, start, end, profit_name, format="%Y-%m-%d"):
     profit_total = 0
     combination = combination.sort_index()
     for index, row in combination.iterrows():
-        if strptime(end, format) >strptime(index, format):
+        if strptime(end, format) > strptime(index, format):
             profit_total = profit_total + combination.loc[index, profit_name]
     year_rate_value = (profit_total / 100.0) / (days / 365.0)
     return year_rate_value
