@@ -8,6 +8,7 @@ from pylab import *
 import iolib as il
 import robolib as rl
 import numpy as np
+import pandas as pd
 
 
 # 计算收益率,波动率(方差),sharp率
@@ -32,8 +33,11 @@ funds_daily = il.getFunds_Everyday(startday_str="2017-01-01", endday_str="2017-0
 nod = len(funds_daily)
 nof = 4
 funds = rl.getNetWorthFromDailyProfit(funds_daily)
-
+funds = funds.apply(lambda x: pd.to_numeric(x, errors='ignore'))
+print(funds.ix[0].dtype)
+print((funds / funds.shift(1)).ix[0].dtype)
 returns = np.log(funds / funds.shift(1))
+
 returns_year = returns.mean()*nod
 print(returns_year)
 print(returns)
