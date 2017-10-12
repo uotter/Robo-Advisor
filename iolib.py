@@ -12,21 +12,23 @@ import matplotlib.pyplot as plt
 from pylab import *
 import robolib as rl
 import calendar
+import os,sys
 
 # 设置绘图中所用的中文字体
 mpl.rcParams['font.sans-serif'] = ['simhei']
 
 # read the funds' information from files
-fund1_path = r"F:\Code\Robo-Advisor\history_data\fund1.txt"
-fund2_path = r"F:\Code\Robo-Advisor\history_data\fund2.txt"
-fund3_path = r"F:\Code\Robo-Advisor\history_data\fund3.txt"
-user_type_percent_path = r"F:\Code\Robo-Advisor\initial_percent\zengjinbao_v3_for_machine.csv"
-result_path_csv = r"F:\Code\Robo-Advisor\result\zengjinbao_result.csv"
-result_path_html = r"F:\Code\Robo-Advisor\result\zengjinbao_result.html"
-percent_path_csv = r"F:\Code\Robo-Advisor\result\percent_result.csv"
-compare_path_csv = r"F:\Code\Robo-Advisor\result\zengjinbao_result_compare.csv"
-holiday_path = r"F:\Code\Robo-Advisor\usefuldata\holidays.csv"
-shibor_path = r"F:\Code\Robo-Advisor\history_data\Shibor.csv"
+cwd = os.getcwd()
+fund1_path = cwd+r"\history_data\fund1.txt"
+fund2_path = cwd+r"\history_data\fund2.txt"
+fund3_path = cwd+r"\history_data\fund3.txt"
+user_type_percent_path = cwd+r"\initial_percent\zengjinbao_v3_for_machine.csv"
+result_path_csv = cwd+r"\result\zengjinbao_result.csv"
+result_path_html = cwd+r"\result\zengjinbao_result.html"
+percent_path_csv = cwd+r"\result\percent_result.csv"
+compare_path_csv = cwd+r"\result\zengjinbao_result_compare.csv"
+holiday_path = cwd+r"\usefuldata\holidays.csv"
+shibor_path = cwd+r"\history_data\Shibor.csv"
 
 
 def getFunds_Everyday(startday_str, endday_str):
@@ -67,6 +69,8 @@ def getFunds_Everyday(startday_str, endday_str):
     for col in cols:
         returnpd[col] = returnpd[col].astype(float)
     return returnpd
+
+
 
 
 if __name__ == '__main__':

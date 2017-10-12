@@ -92,7 +92,7 @@ def MCPlot(nof, returns):
 
 def EFPlot(goalfunc, nod, nof, opts, optv):
     # 在不同目标收益率水平（target_returns）循环时，最小化的一个约束条件会变化。
-    target_returns = np.linspace(opt_statistics(optv['x'])[0], opt_statistics(optv['x'])[0]+0.01, 30)
+    target_returns = np.linspace(opt_statistics(optv['x'])[0], opt_statistics(optv['x'])[0]+0.01, 10)
     target_variance = []
     target_returns_compute=[]
 
@@ -123,9 +123,9 @@ def EFPlot(goalfunc, nod, nof, opts, optv):
     port_variance = np.array(port_variance)
     plt.figure(figsize=(8, 4))
     # 圆圈：蒙特卡洛随机产生的组合分布
-    plt.scatter(port_variance, port_returns, c=port_returns / port_variance, marker='o')
+    plt.scatter(port_variance, port_returns, c=port_variance, marker='o')
     # 叉号：有效前沿
-    plt.scatter(target_variance, target_returns_compute, c=target_returns_compute / target_variance, marker='x')
+    plt.scatter(target_variance, target_returns, c=target_variance, marker='x')
     # 红星：标记最高sharpe组合
     plt.plot(opt_statistics(opts['x'])[1], opt_statistics(opts['x'])[0], 'r*', markersize=15.0)
     # 黄星：标记最小方差组合
@@ -141,12 +141,14 @@ def EFPlot(goalfunc, nod, nof, opts, optv):
 mpl.rcParams['font.sans-serif'] = ['simhei']
 
 funds_daily = il.getFunds_Everyday(startday_str="2017-01-01", endday_str="2017-08-31")
+# funds_daily = funds_daily[['depsoit','fund1','fund3']]
 nod = len(funds_daily)
-nof = 4
+nof = len(funds_daily.columns)
 funds = rl.getNetWorthFromDailyProfit(funds_daily)
 returns = np.log(funds / funds.shift(1))
 return_np = np.random.randn(nof,nod)
 returns = pd.DataFrame(return_np.T)
+# returns.to_csv(il.cwd+r"\result\temp.csv", sep=',', header=True, index=True)
 # MCPlot(nof, returns)
 # returns_year = returns.mean() * nod
 # return_corr = returns.corr() * nod
