@@ -43,15 +43,14 @@ def get_date_by_year_month_weekcount_weekday(year, month, weekcount, weekday):
 def getNetWorthFromDailyProfit(funds):
     '''
         从基金数据的日万份收益计算器净值，以方便后续计算对数收益率,由于使用了万份净值，初始净值按照一万分计算
+        按复利计算
     '''
     returnpd = funds.copy(deep=True)
+    returnpd.ix[0] = returnpd.ix[0] + 10000
     nod = len(funds)
-    for i in range(nod):
-        temp = 0
-        for j in range(i+1):
-            temp = temp + funds.ix[j]
-        returnpd.ix[i] = temp
-    return returnpd + 10000
+    for i in range(1, nod):
+        returnpd.ix[i] = returnpd.ix[i-1]+funds.ix[i]*(returnpd.ix[i-1]/10000)
+    return returnpd
 
 
 def allweeks(year):

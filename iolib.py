@@ -40,7 +40,6 @@ def getFunds_Everyday(startday_str, endday_str):
     datelist = rl.dateRange(startday_str, endday_str, step=1, format="%Y-%m-%d")
     holidays = pd.read_csv(holiday_path)
     filter_str = "all"
-
     fund1 = rl.smoothfund(holidays, fund1)
     fund2 = rl.smoothfund(holidays, fund2)
     fund3 = rl.smoothfund(holidays, fund3)
@@ -64,6 +63,9 @@ def getFunds_Everyday(startday_str, endday_str):
     returnpd.rename(columns={"dailyProfit": "fund2"}, inplace=True)
     returnpd = returnpd.join(fund3["dailyProfit"])
     returnpd.rename(columns={"dailyProfit": "fund3"}, inplace=True)
+    cols = returnpd.columns
+    for col in cols:
+        returnpd[col] = returnpd[col].astype(float)
     return returnpd
 
 
