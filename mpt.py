@@ -6,7 +6,6 @@ Created on Thu Sep 14 15:42:12 2017
 """
 from pylab import *
 import iolib as il
-import robolib as rl
 import numpy as np
 import scipy.optimize as sco
 import pandas as pd
@@ -43,9 +42,14 @@ def min_sharpe(weights):
     return -opt_statistics(weights)[2]
 
 
+# 最小化收益的负值
+def min_return(weights):
+    return -opt_statistics(weights)[0] * 10000
+
+
 # 定义一个函数对方差进行最小化
 def min_variance(weights):
-    return opt_statistics(weights)[1]
+    return opt_statistics(weights)[1] * 100000
 
 
 def MKOptimization(goalfunc, nof):
@@ -59,6 +63,48 @@ def MKOptimization(goalfunc, nof):
     # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
     bnds = tuple((0, 1) for x in range(nof))
     opts = sco.minimize(goalfunc, nof * [1. / nof, ], method='SLSQP', bounds=bnds, constraints=cons)
+    return opts
+
+
+def MK_MaxReturn():
+    """
+        暴露给外部调用
+        goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
+        nof 组合所使用的产品数量
+    """
+    # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
+    cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+    # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
+    bnds = tuple((0, 1) for x in range(nof))
+    opts = sco.minimize(min_return, nof * [1. / nof, ], method='SLSQP', bounds=bnds, constraints=cons)
+    return opts
+
+
+def MK_MaxSharp():
+    """
+        暴露给外部调用
+        goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
+        nof 组合所使用的产品数量
+    """
+    # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
+    cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+    # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
+    bnds = tuple((0, 1) for x in range(nof))
+    opts = sco.minimize(min_sharpe, nof * [1. / nof, ], method='SLSQP', bounds=bnds, constraints=cons)
+    return opts
+
+
+def MK_MinVariance():
+    """
+        暴露给外部调用
+        goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
+        nof 组合所使用的产品数量
+    """
+    # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
+    cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+    # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
+    bnds = tuple((0, 1) for x in range(nof))
+    opts = sco.minimize(min_variance, nof * [1. / nof, ], method='SLSQP', bounds=bnds, constraints=cons)
     return opts
 
 
@@ -92,9 +138,9 @@ def MCPlot(nof, returns):
 
 def EFPlot(goalfunc, nod, nof, opts, optv):
     # 在不同目标收益率水平（target_returns）循环时，最小化的一个约束条件会变化。
-    target_returns = np.linspace(opt_statistics(optv['x'])[0], opt_statistics(optv['x'])[0]+0.01, 10)
+    target_returns = np.linspace(opt_statistics(optv['x'])[0], opt_statistics(optv['x'])[0] + 0.01, 30)
     target_variance = []
-    target_returns_compute=[]
+    target_returns_compute = []
 
     # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
     bnds = tuple((0, 1) for x in range(nof))
@@ -103,7 +149,7 @@ def EFPlot(goalfunc, nod, nof, opts, optv):
         index += 1
         print("计算第" + str(index) + "个有效前沿取样，共" + str(len(target_returns)) + "个有效前沿取样。")
         cons = (
-        {'type': 'eq', 'fun': lambda x: opt_statistics(x)[0] - tar}, {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+            {'type': 'eq', 'fun': lambda x: opt_statistics(x)[0] - tar}, {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
         res = sco.minimize(goalfunc, nof * [1. / nof, ], method='SLSQP', bounds=bnds, constraints=cons)
         target_variance.append(opt_statistics(res['x'])[1])
         target_returns_compute.append(opt_statistics(res['x'])[0])
@@ -113,19 +159,26 @@ def EFPlot(goalfunc, nod, nof, opts, optv):
     target_variance = np.array(target_variance)
     port_returns = []
     port_variance = []
+    minv_weights = []
+    minv = 100
     for p in range(4000):
         weights = np.random.random(nof)
         weights /= np.sum(weights)
         port_returns.append(np.sum(returns.mean() * nod * weights))
         port_variance.append(np.sqrt(np.dot(weights.T, np.dot(returns.cov() * nod, weights))))
-
+        variance = np.sqrt(np.dot(weights.T, np.dot(returns.cov() * nod, weights)))
+        if variance < minv:
+            minv = variance
+            minv_weights = weights
+    print(optv['x'], opt_statistics(optv['x'])[1])
+    print(minv_weights, minv)
     port_returns = np.array(port_returns)
     port_variance = np.array(port_variance)
     plt.figure(figsize=(8, 4))
     # 圆圈：蒙特卡洛随机产生的组合分布
-    plt.scatter(port_variance, port_returns, c=port_variance, marker='o')
+    plt.scatter(port_variance, port_returns, c=port_returns / port_variance, marker='o')
     # 叉号：有效前沿
-    plt.scatter(target_variance, target_returns, c=target_variance, marker='x')
+    plt.plot(target_variance, target_returns, 'y-', LineWidth=5.0)
     # 红星：标记最高sharpe组合
     plt.plot(opt_statistics(opts['x'])[1], opt_statistics(opts['x'])[0], 'r*', markersize=15.0)
     # 黄星：标记最小方差组合
@@ -137,22 +190,40 @@ def EFPlot(goalfunc, nod, nof, opts, optv):
     plt.show()
 
 
+def getNetWorthFromDailyProfit(funds):
+    '''
+        从基金数据的日万份收益计算器净值，以方便后续计算对数收益率,由于使用了万份净值，初始净值按照一万分计算
+        按复利计算
+    '''
+    returnpd = funds.copy(deep=True)
+    returnpd.ix[0] = returnpd.ix[0] + 10000
+    nod = len(funds)
+    for i in range(1, nod):
+        returnpd.ix[i] = returnpd.ix[i - 1] + funds.ix[i] * (returnpd.ix[i - 1] / 10000)
+    return returnpd
+
+
 # 设置绘图中所用的中文字体
 mpl.rcParams['font.sans-serif'] = ['simhei']
 
 funds_daily = il.getFunds_Everyday(startday_str="2017-01-01", endday_str="2017-08-31")
-# funds_daily = funds_daily[['depsoit','fund1','fund3']]
+# funds_daily = funds_daily[['depsoit', 'fund1', 'fund3']]
 nod = len(funds_daily)
 nof = len(funds_daily.columns)
-funds = rl.getNetWorthFromDailyProfit(funds_daily)
+funds = getNetWorthFromDailyProfit(funds_daily)
 returns = np.log(funds / funds.shift(1))
 # return_np = np.random.randn(nof,nod)
-# returns = pd.merge(returns,pd.DataFrame(return_np.T),left_index=True,right_index=True,how='outer')
-# returns.to_csv(il.cwd+r"\result\temp.csv", sep=',', header=True, index=True)
-# MCPlot(nof, returns)
-# returns_year = returns.mean() * nod
-# return_corr = returns.corr() * nod
-# return_covs = returns.cov() * nod
+# returns = pd.DataFrame(return_np.T)
+# # returns.to_csv(il.cwd+r"\result\temp.csv", sep=',', header=True, index=True)
+# # MCPlot(nof, returns)
+# # returns_year = returns.mean() * nod
+return_corr = returns.corr()
+print(return_corr)
+# # return_covs = returns.cov() * nod
 optvs = MKOptimization(min_variance, nof)
 optss = MKOptimization(min_sharpe, nof)
+print(optvs)
+print(optss)
+print('maxsharp'+str(opt_statistics(optss['x'])))
+print('minvariance'+str(opt_statistics(optvs['x'])))
 EFPlot(min_variance, nod, nof, optss, optvs)

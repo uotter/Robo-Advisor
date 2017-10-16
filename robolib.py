@@ -11,6 +11,7 @@ import datetime as datetime
 import matplotlib.pyplot as plt
 from pylab import *
 import calendar
+import os
 
 # 设置绘图中所用的中文字体
 mpl.rcParams['font.sans-serif'] = ['simhei']
@@ -49,7 +50,7 @@ def getNetWorthFromDailyProfit(funds):
     returnpd.ix[0] = returnpd.ix[0] + 10000
     nod = len(funds)
     for i in range(1, nod):
-        returnpd.ix[i] = returnpd.ix[i-1]+funds.ix[i]*(returnpd.ix[i-1]/10000)
+        returnpd.ix[i] = returnpd.ix[i - 1] + funds.ix[i] * (returnpd.ix[i - 1] / 10000)
     return returnpd
 
 
@@ -297,6 +298,26 @@ def getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, f
     return comprofit, percent_detail
 
 
+# 计算序列的年化收益率，输入的combination为每日万份收益的dataframe
+def statisticscompute(combination, start, end, profit_name, format="%Y-%m-%d"):
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    days = (strptime(end, format) - strptime(start, format)).days
+    profit_total = 0
+    combination = combination.sort_index()
+    statistics = combination.describe()
+    count = statistics.loc["count", profit_name]
+    mean = statistics.loc["mean", profit_name]
+    std = statistics.loc["std", profit_name]
+    year_rate = (count * mean / 100.0) / (days / 365.0)
+    sharp = year_rate / std
+    # for index, row in combination.iterrows():
+    #     if strptime(end, format) > strptime(index, format):
+    #         profit_total = profit_total + combination.loc[index, profit_name]
+    # year_rate_value = (profit_total / 100.0) / (days / 365.0)
+    return year_rate,std,sharp
+
+
+# 计算序列的年化收益率，输入的combination为每日万份收益的dataframe
 def year_rate(combination, start, end, profit_name, format="%Y-%m-%d"):
     strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
     days = (strptime(end, format) - strptime(start, format)).days
@@ -310,25 +331,46 @@ def year_rate(combination, start, end, profit_name, format="%Y-%m-%d"):
 
 
 if __name__ == '__main__':
-    # read the funds' information from files
-    fund1_path = r"F:\Code\Robo-Advisor\history_data\fund1.txt"
-    # fund2_path = r"F:\Code\Robo-Advisor\history_data\fund2.txt"
-    # fund3_path = r"F:\Code\Robo-Advisor\history_data\fund3.txt"
-    holiday_path = r"F:\Code\Robo-Advisor\usefuldata\holidays.csv"
+    cwd = os.getcwd()
+    fund1_path = cwd + r"\history_data\fund1.txt"
+    fund2_path = cwd + r"\history_data\fund2.txt"
+    fund3_path = cwd + r"\history_data\fund3.txt"
+    user_type_percent_path = cwd + r"\initial_percent\zengjinbao_v3_for_machine.csv"
+    result_path_csv = cwd + r"\result\zengjinbao_result.csv"
+    result_path_html = cwd + r"\result\zengjinbao_result.html"
+    percent_path_csv = cwd + r"\result\percent_result.csv"
+    compare_path_csv = cwd + r"\result\zengjinbao_result_compare.csv"
+    holiday_path = cwd + r"\usefuldata\holidays.csv"
+    shibor_path = cwd + r"\history_data\Shibor.csv"
+
     fund1 = pd.read_csv(fund1_path).set_index("endDate")
-    # fund2 = pd.read_csv(fund2_path).set_index("endDate")
-    # fund3 = pd.read_csv(fund3_path).set_index("endDate")
-    holidays = pd.read_csv(holiday_path)
+    fund2 = pd.read_csv(fund2_path).set_index("endDate")
+    fund3 = pd.read_csv(fund3_path).set_index("endDate")
+    shibor = pd.read_csv(shibor_path).set_index("date")
+    user_type_percent = pd.read_csv(user_type_percent_path)
 
     startday_str = "2017-01-01"
     endday_str = "2017-08-31"
     startday = datetime.datetime.strptime(startday_str, '%Y-%m-%d')
     endday = datetime.datetime.strptime(endday_str, '%Y-%m-%d')
     datelist = dateRange(startday_str, endday_str, step=1, format="%Y-%m-%d")
-    fund1 = smoothfund(holidays, fund1)
-    # fund2 = fillFund(datelist, fund2)
-    # fund3 = fillFund(datelist, fund3)
+    holidays = pd.read_csv(holiday_path)
+    filter_str = "all"
 
-    fund1.sort_index()
-    fund1.to_csv(r"F:\Code\Robo-Advisor\usefuldata\fundanalysis.csv", sep=',', header=True, index=True)
-    print(fund1)
+    fund1 = smoothfund(holidays, fund1)
+    fund2 = smoothfund(holidays, fund2)
+    fund3 = smoothfund(holidays, fund3)
+    # 活期存款利率
+    depsoit_current_rate = 0.0035
+    profit_rate = getConstantDepsoit(startday_str, endday_str, depsoit_current_rate)
+    # shibor作为活期存款
+    sort_date_shibor = (fillDepsoit(startday_str, endday_str, shibor, "depsoit_rate")).sort_index()
+    sort_date_shibor.loc["2017-01-01", "depsoit_rate"] = 2.589
+    sort_date_shibor.loc["2017-01-02", "depsoit_rate"] = 2.589
+    base_yearrate = sort_date_shibor
+    base_dayprofit = yearrate_to_dayprofit(base_yearrate, "depsoit_rate", "percent")
+    fundprofit = {"depsoit": base_dayprofit, "fund1": fund1, "fund2": fund2, "fund3": fund3}
+    fundpercent = {"depsoit": 0.873, "fund1": 0.04, "fund2": 0.001, "fund3": 0.086}
+    result = getCombinationProfit(fundpercent, fundprofit, "test")
+    r2 = statisticscompute(result, startday_str, endday_str, "test-combination_profit", format="%Y-%m-%d")
+    print(r2)
