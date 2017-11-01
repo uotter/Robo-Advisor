@@ -18,19 +18,19 @@ mpl.rcParams['font.sans-serif'] = ['simhei']
 
 # read the funds' information from files
 cwd = os.getcwd()
-fund1_path = cwd+r"\history_data\fund1.txt"
-fund2_path = cwd+r"\history_data\fund2.txt"
-fund3_path = cwd+r"\history_data\fund3.txt"
-user_type_percent_path = cwd+r"\initial_percent\zengjinbao_v3_for_machine.csv"
-result_path_csv = cwd+r"\result\zengjinbao_result.csv"
-result_path_html = cwd+r"\result\zengjinbao_result.html"
-percent_path_csv = cwd+r"\result\percent_result.csv"
-compare_path_csv = cwd+r"\result\zengjinbao_result_compare.csv"
-holiday_path = cwd+r"\usefuldata\holidays.csv"
-shibor_path = cwd+r"\history_data\Shibor.csv"
-
-
-
+fund1_path = cwd + r"\history_data\fund1.txt"
+fund2_path = cwd + r"\history_data\fund2.txt"
+fund3_path = cwd + r"\history_data\fund3.txt"
+user_type_percent_path = cwd + r"\initial_percent\zengjinbao_v3_for_machine.csv"
+result_path_csv = cwd + r"\result\zengjinbao_result.csv"
+result_path_html = cwd + r"\result\zengjinbao_result.html"
+percent_path_csv = cwd + r"\result\percent_result.csv"
+compare_path_csv = cwd + r"\result\zengjinbao_result_compare.csv"
+holiday_path = cwd + r"\usefuldata\holidays.csv"
+shibor_path = cwd + r"\history_data\Shibor.csv"
+fundspool_path = cwd + r"\history_data\FundsPool.csv"
+funds_fee_path = cwd + r"\history_data\zs_fee.csv"
+funds_discount_path = cwd + r"\history_data\zs_discount.csv"
 
 
 def getFunds_Everyday(startday_str, endday_str):
@@ -64,8 +64,53 @@ def getFunds_Everyday(startday_str, endday_str):
     return returnpd
 
 
+def getZS_Funds_Fee():
+    '''
+        读取我行代销的基金列表，相应的申购费率和赎回费率
+    '''
+    funds_fee_raw = pd.read_csv(funds_fee_path, dtype=str)
+    zs_funds_pd_columns = ["ticker", "name", "type", "risk", "buyratio", "sellratio"]
+    zs_funds_pd = pd.DataFrame(columns=zs_funds_pd_columns)
+    for index, row in funds_fee_raw.iterrows():
+        ticker = funds_fee_raw.loc[index, "产品代码"]
+        if len(str(ticker)) == 6:
+            fundsname = funds_fee_raw.loc[index, "产品简称"]
+            fundstype = funds_fee_raw.loc[index, "产品类型"]
+            fundsrisk = funds_fee_raw.loc[index, "风险等级"]
+            fundsbuy = str(funds_fee_raw.loc[index, "买费率"] if funds_fee_raw.loc[index, "买费率"] not in ["不收费","无"] else 0)
+            fundssell = str(funds_fee_raw.loc[index, "卖费率"] if funds_fee_raw.loc[index, "卖费率"] not in ["不收费","无"] else 0)
+            funds_fee_dic = {"ticker": ticker, "name": fundsname, "type": fundstype, "risk": fundsrisk,
+                             "buyratio": float(fundsbuy.replace("%",""))/100.0, "sellratio": float(fundssell.replace("%",""))/100.0}
+            zs_funds_pd = zs_funds_pd.append(funds_fee_dic,ignore_index=True)
+    return zs_funds_pd
+
+
+def getZS_Funds_discount():
+    '''
+        读取我行代销的基金的申购折扣
+    '''
+    funds_discount_raw = pd.read_csv(funds_discount_path, dtype=str)
+    zs_discount_columns = ["ticker","name","tcode","tname","ttype","tmin","tmax","discount"]
+    funds_discount_raw.columns = zs_discount_columns
+    return funds_discount_raw
+
+
+def getZS_Company_combination():
+    '''
+        读取公司的组合配置结果
+    '''
+    funds_discount_raw = pd.read_csv(funds_discount_path, dtype=str)
+    zs_discount_columns = ["ticker", "name", "tcode", "tname", "ttype", "tmin", "tmax", "discount"]
+    funds_discount_raw.columns = zs_discount_columns
+    return funds_discount_raw
+
+
+def get_funds_pool_bytype(typelist):
+    funds = pd.read_csv(fundspool_path, dtype=str)
+    funds_filter = funds[funds["类型"].isin(typelist)]
+    return funds_filter
 
 
 if __name__ == '__main__':
-    test = getFunds_Everyday(startday_str="2017-01-01", endday_str="2017-08-31")
-    print(test)
+    zsfunds = getZS_Funds_discount()
+    print(zsfunds)
