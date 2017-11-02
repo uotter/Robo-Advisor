@@ -314,7 +314,7 @@ def statisticscompute(combination, start, end, profit_name, format="%Y-%m-%d"):
     #     if strptime(end, format) > strptime(index, format):
     #         profit_total = profit_total + combination.loc[index, profit_name]
     # year_rate_value = (profit_total / 100.0) / (days / 365.0)
-    return year_rate,std,sharp
+    return year_rate, std, sharp
 
 
 # 计算序列的年化收益率，输入的combination为每日万份收益的dataframe
@@ -328,6 +328,37 @@ def year_rate(combination, start, end, profit_name, format="%Y-%m-%d"):
             profit_total = profit_total + combination.loc[index, profit_name]
     year_rate_value = (profit_total / 100.0) / (days / 365.0)
     return year_rate_value
+
+
+def getFundsNetNext_byTickerDate(ticker, date, funds_df, format="%Y-%m-%d"):
+    '''
+        根据基金编号和基金日期返回基金净值或日万份收益,如果当天没有，则返回后面第一天的值，
+        如果后面都没有值，则返回0
+    '''
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    funds_ticker = funds_df[funds_df["ticker"] == ticker]
+    datemax = funds_ticker.iloc[-1]["date"]
+    while date not in funds_ticker["date"].values.tolist():
+        date = strftime(strptime(date, format) + datetime.timedelta(days=1), format)
+        if datetime.datetime.strptime(str(date),format) > datetime.datetime.strptime(str(datemax),format):
+            return 0.0
+    return float(funds_ticker[funds_ticker["date"] == date].iloc[0]["net"])
+
+
+def getFundsNetBefore_byTickerDate(ticker, date, funds_df, format="%Y-%m-%d"):
+    '''
+        根据基金编号和基金日期返回基金净值或日万份收益,如果当天没有，则返回前面一天的值，
+        如果前面都没有值，则返回0
+    '''
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    funds_ticker = funds_df[funds_df["ticker"] == ticker]
+    datemin = funds_ticker.iloc[0]["date"]
+    while date not in funds_ticker["date"].values.tolist():
+        date = strftime(strptime(date, format) + datetime.timedelta(days=-1), format)
+        if datetime.datetime.strptime(str(date),format) < datetime.datetime.strptime(str(datemin),format):
+            return 0.0
+    return float(funds_ticker[funds_ticker["date"] == date].iloc[0]["net"])
+
 
 
 if __name__ == '__main__':
