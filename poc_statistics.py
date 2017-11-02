@@ -19,7 +19,7 @@ users = il.getZS_users()
 funds_net = il.getFunds_Net()
 funds_profit = il.getFunds_Profit()
 
-company_file_names = ["zs_kmrd"]
+company_file_names = ["zs_betago","zs_kmrd"]
 
 startday_str = "2017-07-01"
 endday_str = "2017-10-29"
@@ -34,7 +34,7 @@ for company_file in company_file_names:
     company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + company_file + ".csv")
     company_detial = pd.DataFrame()
     time_cost = 0.0
-    for index, row in users[6:20].iterrows():
+    for index, row in users.iterrows():
         start = time.clock()
         print("计算第" + str(index) + "/" + str(len(users)) + "个用户.")
         # 对每一个用户循环
