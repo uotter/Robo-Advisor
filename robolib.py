@@ -298,7 +298,7 @@ def getCombinationProfit_changeby_weekcount_weekday_profitpercent(fundpercent, f
     return comprofit, percent_detail
 
 
-# 计算序列的年化收益率，输入的combination为每日万份收益的dataframe
+# 计算序列的统计参数，输入的combination为每日万份收益的dataframe
 def statisticscompute(combination, start, end, profit_name, format="%Y-%m-%d"):
     strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
     days = (strptime(end, format) - strptime(start, format)).days
