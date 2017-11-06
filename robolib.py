@@ -18,10 +18,18 @@ mpl.rcParams['font.sans-serif'] = ['simhei']
 
 
 # start和end是形如"2017-01-01"的字符串，分别表示开始时间和结束时间
-# 返回在开始时间和结束时间之间的日期字符串类表（不包括end这一天）
+# 返回在开始时间和结束时间之间的日期字符串列表（不包括end这一天）
 def dateRange(start, end, step=1, format="%Y-%m-%d"):
     strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
     days = (strptime(end, format) - strptime(start, format)).days
+    return [strftime(strptime(start, format) + datetime.timedelta(i), format) for i in range(0, days, step)]
+
+
+# start和end是形如"2017-01-01"的字符串，分别表示开始时间和结束时间
+# 返回在开始时间和结束时间之间的日期字符串列表（不包括end这一天）
+def dateRange_endinclude(start, end, step=1, format="%Y-%m-%d"):
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    days = (strptime(end, format) - strptime(start, format)).days + 1
     return [strftime(strptime(start, format) + datetime.timedelta(i), format) for i in range(0, days, step)]
 
 
@@ -304,7 +312,7 @@ def statisticscompute(combination, start, end, profit_name, format="%Y-%m-%d"):
     days = (strptime(end, format) - strptime(start, format)).days
     profit_total = 0
     combination = combination.sort_index()
-    statistics = combination.describe()
+    statistics = combination.strftime()
     count = statistics.loc["count", profit_name]
     mean = statistics.loc["mean", profit_name]
     std = statistics.loc["std", profit_name]
@@ -340,7 +348,7 @@ def getFundsNetNext_byTickerDate(ticker, date, funds_df, format="%Y-%m-%d"):
     datemax = funds_ticker.iloc[-1]["date"]
     while date not in funds_ticker["date"].values.tolist():
         date = strftime(strptime(date, format) + datetime.timedelta(days=1), format)
-        if datetime.datetime.strptime(str(date),format) > datetime.datetime.strptime(str(datemax),format):
+        if datetime.datetime.strptime(str(date), format) > datetime.datetime.strptime(str(datemax), format):
             return 0.0
     return float(funds_ticker[funds_ticker["date"] == date].iloc[0]["net"])
 
@@ -355,10 +363,9 @@ def getFundsNetBefore_byTickerDate(ticker, date, funds_df, format="%Y-%m-%d"):
     datemin = funds_ticker.iloc[0]["date"]
     while date not in funds_ticker["date"].values.tolist():
         date = strftime(strptime(date, format) + datetime.timedelta(days=-1), format)
-        if datetime.datetime.strptime(str(date),format) < datetime.datetime.strptime(str(datemin),format):
+        if datetime.datetime.strptime(str(date), format) < datetime.datetime.strptime(str(datemin), format):
             return 0.0
     return float(funds_ticker[funds_ticker["date"] == date].iloc[0]["net"])
-
 
 
 if __name__ == '__main__':

@@ -1,0 +1,85 @@
+def getMarketCap_By_Buydate_Selldate(buydate, selldate, user_combination, usermoney):
+    datebuy_index = datelist.index(buydate)
+    datesell_index = datelist.index(selldate)
+    user_marketcap = {}
+    moneystart = usermoney
+    combination_dates_list = user_combination["date"].values.tolist().copy()
+    if datebuy_index in user_combination["date"].values.tolist():
+        user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(buydate,
+                                                                          user_combination,
+                                                                          usermoney)
+        user_marketcap[buydate] = usermoney
+    else:
+        combination_dates_list.append(buydate)
+        combination_dates_list = list(set(combination_dates_list)).sort()
+        combination_dates_list_buydate_only = combination_dates_list.copy()
+        buy_date_index_incombination_only = combination_dates_list(buydate)
+        buydate_index_is_last_incombination = True if buy_date_index_incombination_only == len(
+            combination_dates_list) - 1 else False
+        combination_dates_list.append(selldate)
+        combination_dates_list = list(set(combination_dates_list)).sort()
+        buy_date_index_incombination = combination_dates_list.index(buydate)
+        sell_date_index_incombination = combination_dates_list.index(selldate)
+        if buy_date_index_incombination >= sell_date_index_incombination:
+            return usermoney
+        else:
+            if buy_date_index_incombination > 0:
+                datelist_possible_temp = datelist_possible.copy()
+                datelist_possible_temp.append(buydate.replace("-", ""))
+                datelist_possible_temp.sort()
+                buydate_index_in_possible = datelist_possible_temp.index(buydate.replace("-", ""))
+                if buydate_index_is_last_incombination:
+                    combination_buy_date = user_combination["date"].values.tolist().copy()[-1]
+                    user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(combination_buy_date,
+                                                                                      user_combination,
+                                                                                      usermoney)
+                    user_marketcap[buydate] = usermoney
+                else:
+                    next_exchange_date = datelist_possible_temp[buydate_index_in_possible + 1]
+                    date_range = rl.dateRange(buydate, strftime(strptime(next_exchange_date, "%Y%m%d"), format))
+                    real_buy_date = combination_dates_list_buydate_only[buy_date_index_incombination_only - 1]
+                    for date_check in date_range:
+                        if date_check in user_combination["date"].values.tolist():
+                            if datetime.datetime.strptime(str(date_check), format) > datetime.datetime.strptime(
+                                    str(real_buy_date), format):
+                                real_buy_date = date_check
+                    user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(real_buy_date,
+                                                                                      user_combination,
+                                                                                      usermoney)
+                    user_marketcap[buydate] = usermoney
+
+    for date_index in range(datebuy_index + 1, datesell_index + 1):
+        date_maxdown = date_index[date_index]
+        if not bool(user_funds_hold):
+            if date_maxdown in user_combination["date"].values.tolist():
+                user_marketcap[date_maxdown] = usermoney
+                user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date_maxdown,
+                                                                                  user_combination,
+                                                                                  usermoney)
+            else:
+                user_marketcap[date_maxdown] = usermoney
+        elif date_maxdown in user_combination["date"].values.tolist():
+            marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money,
+                                                                    date_maxdown.replace("-", ""))
+            user_marketcap[date_maxdown] = marketcap_date + leftusermoney
+            user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date_maxdown,
+                                                                              user_combination,
+                                                                              marketcap_date)
+        else:
+            marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money,
+                                                                    date_maxdown.replace("-", ""))
+            user_marketcap[date_maxdown] = marketcap_date + leftusermoney
+
+        if date_maxdown in user_combination["date"].values.tolist():
+            user_marketcap[date_maxdown] = usermoney
+            user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date_maxdown, user_combination,
+                                                                              usermoney)
+        else:
+            combination_dates_list.append(date_maxdown)
+            combination_dates_list.append(selldate)
+            combination_dates_list.sort()
+            maxdown_date_index_incombination = combination_dates_list.index(date_maxdown)
+            sell_date_index_incombination = combination_dates_list.index(date_maxdown)
+            if maxdown_date_index_incombination > sell_date_index_incombination:
+
+            user_marketcap[date_maxdown] = usermoney

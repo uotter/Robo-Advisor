@@ -90,6 +90,46 @@ def getUserCombinationByDate(date, user_combination):
             return return_dic
 
 
+def getMaxDown():
+    '''
+        计算不同厂家给出的配置计算最大回撤，并输出为文件,不计算费率和赎回过程中的资金延迟
+    '''
+    for company_file in company_file_names:
+        # 对每一个公司给出的配置情况循环
+        company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + company_file + ".csv")
+        company_detial_maxdown = pd.DataFrame()
+        time_cost = 0.0
+        user_maxdown_dic = {}
+        for index, row in users.iterrows():
+            start = time.clock()
+            print("计算第" + str(index) + "/" + str(len(users)) + "个用户.")
+            # 对每一个用户循环
+            userid = row["userid"]
+            leftusermoney = usermoney = float(row["moneyamount"]) * 10000
+            user_combination = company_df[company_df['userid'] == userid]
+            user_funds_hold = {}
+            user_marketcap = {}
+            buy_money = {}
+            user_maxdown = 0
+            for datebuy in datelist[:len(datelist) - 1]:
+                datebuy_index = datelist.index(datebuy)
+                for datesell in datelist[datebuy_index + 1:]:
+                    maxdown_datelist = rl.dateRange_endinclude(datebuy, datesell)
+                    user_marketcap = values_in_datelist(maxdown_datelist, user_combination, usermoney)
+                    final_usermoney = float(user_marketcap[maxdown_datelist[-1]])
+                    down = (final_usermoney - usermoney) / usermoney
+                    if user_maxdown > down:
+                        user_maxdown = down
+        user_maxdown_dic[index] = user_maxdown
+        elapsed = (time.clock() - start)
+        time_cost += elapsed
+        print("Time used:", elapsed)
+        print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users) - time_cost)
+    company_detial_maxdown["company_file"] = user_maxdown_dic
+    company_detial_maxdown.to_csv(il.cwd + r"\result\\" + company_file + "_result_nofee_maxdown.csv")
+
+
+
 def get_user_hold_by_date(date, user_combination, usermoney):
     return_user_hold = {}
     return_buy_money = {}
@@ -144,6 +184,9 @@ def get_user_hold_by_date(date, user_combination, usermoney):
 
 
 def compute_value_by_date(user_funds_hold, buymoney, date):
+    '''
+        根据给出的日期，计算用户持有投资组合在当天的净值
+    '''
     return_money = 0
     return_user_holde = user_funds_hold.copy()
     for holdeticker, holdamount in user_funds_hold.items():
@@ -189,6 +232,36 @@ def compute_value_by_date(user_funds_hold, buymoney, date):
     return return_money, return_user_holde
 
 
+def values_in_datelist(datelist_for_vlaues, user_combination, usermoney):
+    '''
+        根据给出的日期列表、用户的组合配置以及起始的金额数量，计算一段时间内每天的组合市值
+    '''
+    user_marketcap = {}
+    user_funds_hold = {}
+    buy_money = {}
+    for date in datelist_for_vlaues:
+        # print("当前回测日期为" + str(date) + ".")
+        # 对回测时间段内的每一个日期循环
+        if not bool(user_funds_hold):
+            if date in user_combination["date"].values.tolist():
+                user_marketcap[date] = usermoney
+                user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date, user_combination,
+                                                                                  usermoney)
+            else:
+                user_marketcap[date] = usermoney
+        elif date in user_combination["date"].values.tolist():
+            marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money,
+                                                                    date.replace("-", ""))
+            user_marketcap[date] = marketcap_date + leftusermoney
+            user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date, user_combination,
+                                                                              marketcap_date)
+        else:
+            marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money,
+                                                                    date.replace("-", ""))
+            user_marketcap[date] = marketcap_date + leftusermoney
+    return user_marketcap
+
+
 def poc_detail_compute_nofee():
     '''
         计算不同厂家给出的配置相应的每日净值，并输出为文件,不计算费率和赎回过程中的资金延迟
@@ -205,28 +278,30 @@ def poc_detail_compute_nofee():
             userid = row["userid"]
             leftusermoney = usermoney = float(row["moneyamount"]) * 10000
             user_combination = company_df[company_df['userid'] == userid]
-            user_funds_hold = {}
-            user_marketcap = {}
-            buy_money = {}
-            last_change_date = ""
-            for date in datelist:
-                # print("当前回测日期为" + str(date) + ".")
-                # 对回测时间段内的每一个日期循环
-                if not bool(user_funds_hold):
-                    if date in user_combination["date"].values.tolist():
-                        user_marketcap[date] = usermoney
-                        user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date, user_combination,
-                                                                                          usermoney)
-                    else:
-                        user_marketcap[date] = usermoney
-                elif date in user_combination["date"].values.tolist():
-                    marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money, date.replace("-", ""))
-                    user_marketcap[date] = marketcap_date + leftusermoney
-                    user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date, user_combination,
-                                                                                      marketcap_date)
-                else:
-                    marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money, date.replace("-", ""))
-                    user_marketcap[date] = marketcap_date + leftusermoney
+            # user_funds_hold = {}
+            # user_marketcap = {}
+            # buy_money = {}
+            user_marketcap = values_in_datelist(datelist, user_combination, usermoney)
+            # for date in datelist:
+            #     # print("当前回测日期为" + str(date) + ".")
+            #     # 对回测时间段内的每一个日期循环
+            #     if not bool(user_funds_hold):
+            #         if date in user_combination["date"].values.tolist():
+            #             user_marketcap[date] = usermoney
+            #             user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date, user_combination,
+            #                                                                               usermoney)
+            #         else:
+            #             user_marketcap[date] = usermoney
+            #     elif date in user_combination["date"].values.tolist():
+            #         marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money,
+            #                                                                 date.replace("-", ""))
+            #         user_marketcap[date] = marketcap_date + leftusermoney
+            #         user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date, user_combination,
+            #                                                                           marketcap_date)
+            #     else:
+            #         marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money,
+            #                                                                 date.replace("-", ""))
+            #         user_marketcap[date] = marketcap_date + leftusermoney
             company_detial = company_detial.append(user_marketcap, ignore_index=True)
             elapsed = (time.clock() - start)
             time_cost += elapsed
