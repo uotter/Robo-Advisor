@@ -19,7 +19,8 @@ users = il.getZS_users()
 funds_net = il.getFunds_Net()
 funds_profit = il.getFunds_Profit()
 
-company_file_names = ["zs_betago", "zs_kmrd"]
+company_file_names = ["zs_sz"]
+# company_file_names = ["zs_sz","zs_betago","zs_kmrd"]
 
 startday_str = "2017-07-01"
 endday_str = "2017-10-29"
@@ -33,6 +34,9 @@ datelist_possible_moneyfund.sort(key=funds_profit["date"].values.tolist().index)
 
 
 def poc_sta(datepairs):
+    '''
+        计算不同厂家给出的配置计算收益率和标准差明细
+    '''
     ini_money = users.pop("moneyamount")
     ini_money = ini_money.map(lambda x: float(x) * 10000)
     for company_file in company_file_names:
@@ -90,6 +94,155 @@ def getUserCombinationByDate(date, user_combination):
             return return_dic
 
 
+def poc_net_everyday():
+    '''
+        计算不同厂家给出的配置每一天的净值,不计算费率和赎回过程中的资金延迟
+    '''
+    company_net_dic = {}
+    for company_file in company_file_names:
+        # 对每一个公司给出的配置情况循环
+        company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + company_file + ".csv")
+        company_detial_maxdown = pd.DataFrame()
+        time_cost = 0.0
+        user_maxdown_dic = {}
+        company_detial = pd.DataFrame()
+        for index, row in users.iterrows():
+            start_out = time.clock()
+            print("计算第" + str(index) + "/" + str(len(users)) + "个用户的最大回撤.")
+            # 对每一个用户循环
+            userid = row["userid"]
+            leftusermoney = usermoney = float(row["moneyamount"]) * 10000
+            user_combination = company_df[company_df['userid'] == userid]
+            user_net_dic = {}
+            for date in datelist:
+                user_hold_dic = getUserCombinationByDate(date, user_combination)
+                net_temp = 0
+                for key, value in user_hold_dic.items():
+                    if key in funds_profit["ticker"].values.tolist():
+                        moneyfund_net = getMoneyFund_Net(startday_str, date, key)
+                        net_temp = net_temp + float(value) * moneyfund_net
+                    else:
+                        fund_net = rl.getFundsNetNext_byTickerDate(key, date.replace("-", ""),
+                                                                   funds_net,
+                                                                   "%Y%m%d")
+                        net_temp = net_temp + fund_net * float(value)
+                user_net_dic[date] = net_temp
+            company_detial = company_detial.append(user_net_dic, ignore_index=True)
+            elapsed = (time.clock() - start_out)
+            time_cost += elapsed
+            print("Time used:", elapsed)
+            print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users) - time_cost)
+        company_net_dic[company_file] = company_detial
+    return company_net_dic
+
+
+# def poc_maxdown_base_on_net():
+#     '''
+#         计算不同厂家给出的配置计算最大回撤，并输出为文件,不计算费率和赎回过程中的资金延迟
+#     '''
+#     company_net_dic = poc_net_everyday
+#     maxdown_user_dic = {}
+#     for company_name, company_net_detial_df in company_net_dic.items():
+#         for index,row in company_net_detial_df.iterrows():
+#             for datebuy in datelist[:len(datelist) - 1]:
+#                 datebuy_index = datelist.index(datebuy)
+#                 for datesell in datelist[datebuy_index + 1:]:
+#                     start = time.clock()
+#                     start_net =
+
+
+def poc_maxdown():
+    '''
+        计算不同厂家给出的配置计算最大回撤，并输出为文件,不计算费率和赎回过程中的资金延迟
+    '''
+    for company_file in company_file_names:
+        # 对每一个公司给出的配置情况循环
+        company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + company_file + ".csv")
+        company_detial_maxdown = pd.DataFrame()
+        time_cost = 0.0
+        user_maxdown_dic = {}
+        for index, row in users.iterrows():
+            start_out = time.clock()
+            print("计算第" + str(index) + "/" + str(len(users)) + "个用户的最大回撤.")
+            # 对每一个用户循环
+            userid = row["userid"]
+            leftusermoney = usermoney = float(row["moneyamount"]) * 10000
+            user_combination = company_df[company_df['userid'] == userid]
+            user_maxdown = 0
+            only_moneyfund_flag = True
+            for index, row in user_combination.iterrows():
+                if row["ticker"] in funds_net["ticker"].values.tolist():
+                    only_moneyfund_flag = False
+                    break
+            if only_moneyfund_flag:
+                # 用户组合中仅有货币基金
+                user_maxdown = 0
+            else:
+                for datebuy in datelist[:len(datelist) - 1]:
+                    datebuy_index = datelist.index(datebuy)
+                    for datesell in datelist[datebuy_index + 1:]:
+                        start = time.clock()
+                        combination_datelist = user_combination["date"].values.tolist()
+                        combination_datelist_temp = combination_datelist.copy()
+                        combination_datelist_temp.append(datebuy)
+                        combination_datelist_temp.append(datesell)
+                        combination_datelist_temp = list(set(combination_datelist_temp))
+                        combination_datelist_temp.sort()
+                        datebuy_index_in_combination = combination_datelist_temp.index(datebuy)
+                        datesell_index_in_combination = combination_datelist_temp.index(datesell)
+                        net_start = 1
+                        net_end = 1
+                        for i in range(datebuy_index_in_combination, datesell_index_in_combination):
+                            date_exchange_buy = combination_datelist_temp[i]
+                            user_hold_dic = getUserCombinationByDate(date_exchange_buy, user_combination)
+                            net_temp = 0
+                            for key, value in user_hold_dic.items():
+                                if key in funds_profit["ticker"].values.tolist():
+                                    net_temp = net_temp + float(value) * 1
+                                else:
+                                    fund_net = rl.getFundsNetNext_byTickerDate(key, date_exchange_buy.replace("-", ""),
+                                                                               funds_net,
+                                                                               "%Y%m%d")
+                                    net_temp = net_temp + fund_net * float(value)
+                            net_start = net_start * net_temp
+                            date_exchange_sell = combination_datelist_temp[i + 1]
+                            net_temp = 0
+                            for key, value in user_hold_dic.items():
+                                if key in funds_profit["ticker"].values.tolist():
+                                    moneyfund_net = getMoneyFund_Net(date_exchange_buy, date_exchange_sell, key)
+                                    net_temp = net_temp + float(value) * moneyfund_net
+                                else:
+                                    fund_net = rl.getFundsNetNext_byTickerDate(key, date_exchange_buy.replace("-", ""),
+                                                                               funds_net,
+                                                                               "%Y%m%d")
+                                    net_temp = net_temp + fund_net * float(value)
+
+                            net_end = net_end * net_temp
+                        user_maxdown = (net_end - net_start) / net_start if (
+                                                                                net_end - net_start) / net_start < user_maxdown else user_maxdown
+                        elapsed = (time.clock() - start)
+                        time_cost += elapsed
+                        print("startdate " + str(datebuy) + " and enddate " + str(datesell) + " costs: " + str(
+                            elapsed) + "s, and maxdown: " + str(user_maxdown))
+            elapsed = (time.clock() - start_out)
+            time_cost += elapsed
+            print("MaxDown：" + str(user_maxdown) + " And Time used:", elapsed)
+            print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users) - time_cost)
+            user_maxdown_dic[index] = user_maxdown
+    company_detial_maxdown["company_file"] = user_maxdown_dic
+    company_detial_maxdown.to_csv(il.cwd + r"\result\\" + company_file + "_result_nofee_maxdown.csv")
+
+
+def getMoneyFund_Net(startdate, enddate, ticker):
+    datelist_mondyfund = rl.dateRange(startdate, enddate)
+    money_fund_profit = funds_profit[funds_profit["ticker"] == ticker]
+    total_earn = 0
+    for date in datelist_mondyfund:
+        if date.replace("-", "") in money_fund_profit["date"].values.tolist():
+            total_earn = total_earn + float(money_fund_profit[money_fund_profit["date"] == date].iloc[0]["net"])
+    return 1 + total_earn / 10000
+
+
 def getMaxDown():
     '''
         计算不同厂家给出的配置计算最大回撤，并输出为文件,不计算费率和赎回过程中的资金延迟
@@ -102,7 +255,7 @@ def getMaxDown():
         user_maxdown_dic = {}
         for index, row in users.iterrows():
             start = time.clock()
-            print("计算第" + str(index) + "/" + str(len(users)) + "个用户.")
+            print("计算第" + str(index) + "/" + str(len(users)) + "个用户的最大回撤.")
             # 对每一个用户循环
             userid = row["userid"]
             leftusermoney = usermoney = float(row["moneyamount"]) * 10000
@@ -115,19 +268,23 @@ def getMaxDown():
                 datebuy_index = datelist.index(datebuy)
                 for datesell in datelist[datebuy_index + 1:]:
                     maxdown_datelist = rl.dateRange_endinclude(datebuy, datesell)
+                    start = time.clock()
                     user_marketcap = values_in_datelist(maxdown_datelist, user_combination, usermoney)
                     final_usermoney = float(user_marketcap[maxdown_datelist[-1]])
                     down = (final_usermoney - usermoney) / usermoney
                     if user_maxdown > down:
                         user_maxdown = down
-        user_maxdown_dic[index] = user_maxdown
-        elapsed = (time.clock() - start)
-        time_cost += elapsed
-        print("Time used:", elapsed)
-        print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users) - time_cost)
+                    elapsed = (time.clock() - start)
+                    time_cost += elapsed
+                    print("startdate " + str(datebuy) + " and enddate " + str(datesell) + " costs: " + str(
+                        elapsed) + "s, and maxdown: " + str(user_maxdown))
+            elapsed = (time.clock() - start)
+            time_cost += elapsed
+            print("MaxDown：" + str(user_maxdown) + " And Time used:", elapsed)
+            print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users) - time_cost)
+            user_maxdown_dic[index] = user_maxdown
     company_detial_maxdown["company_file"] = user_maxdown_dic
     company_detial_maxdown.to_csv(il.cwd + r"\result\\" + company_file + "_result_nofee_maxdown.csv")
-
 
 
 def get_user_hold_by_date(date, user_combination, usermoney):
@@ -245,19 +402,46 @@ def values_in_datelist(datelist_for_vlaues, user_combination, usermoney):
         if not bool(user_funds_hold):
             if date in user_combination["date"].values.tolist():
                 user_marketcap[date] = usermoney
+                start = time.clock()
                 user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date, user_combination,
                                                                                   usermoney)
+                elapsed = (time.clock() - start)
+                # print("date userhold: " + str(date) + " costs " + str(elapsed) + "s.")
             else:
-                user_marketcap[date] = usermoney
+                user_combination_datelist_temp = user_combination["date"].values.tolist().copy()
+                user_combination_datelist_temp.append(date)
+                user_combination_datelist_temp.sort()
+                date_index = user_combination_datelist_temp.index(date)
+                if date_index > 0:
+                    combination_date = user_combination_datelist_temp[date_index - 1]
+                    start = time.clock()
+                    user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(combination_date,
+                                                                                      user_combination,
+                                                                                      usermoney)
+                    elapsed = (time.clock() - start)
+                    # print("date userhold: " + str(date) + " costs " + str(elapsed) + "s.")
+                    user_marketcap[date] = usermoney
+                else:
+                    user_marketcap[date] = usermoney
         elif date in user_combination["date"].values.tolist():
+            start = time.clock()
             marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money,
                                                                     date.replace("-", ""))
+            elapsed = (time.clock() - start)
+            # print("date userhold: " + str(date) + " costs " + str(elapsed) + "s.")
             user_marketcap[date] = marketcap_date + leftusermoney
+            start = time.clock()
             user_funds_hold, buy_money, leftusermoney = get_user_hold_by_date(date, user_combination,
-                                                                              marketcap_date)
+                                                                              user_marketcap[date])
+            elapsed = (time.clock() - start)
+            # print("date marketcap: " + str(date) + " costs " + str(elapsed) + "s.")
+            user_marketcap[date] = marketcap_date + leftusermoney
         else:
+            start = time.clock()
             marketcap_date, user_funds_hold = compute_value_by_date(user_funds_hold, buy_money,
                                                                     date.replace("-", ""))
+            elapsed = (time.clock() - start)
+            # print("date marketcap: " + str(date) + " costs " + str(elapsed) + "s.")
             user_marketcap[date] = marketcap_date + leftusermoney
     return user_marketcap
 
@@ -319,7 +503,7 @@ def poc_detail_compute():
         company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + company_file + ".csv")
         company_detial = pd.DataFrame()
         time_cost = 0.0
-        for index, row in users[99:].iterrows():
+        for index, row in users.iterrows():
             start = time.clock()
             print("计算第" + str(index) + "/" + str(len(users)) + "个用户.")
             # 对每一个用户循环
@@ -441,7 +625,7 @@ def poc_detail_compute():
                                     hold_fund_net = rl.getFundsNetNext_byTickerDate(holdeticker, date.replace("-", ""),
                                                                                     funds_net, "%Y%m%d")
                                 fund_marketcap = holdamount * hold_fund_net
-                            elif fund_ticker in funds_profit["ticker"].values.tolist():
+                            elif holdeticker in funds_profit["ticker"].values.tolist():
                                 # 如果该基金是货币基金，则没有手续费
                                 hold_fund_net = rl.getFundsNetBefore_byTickerDate(holdeticker, date.replace("-", ""),
                                                                                   funds_profit, "%Y%m%d")
@@ -451,6 +635,7 @@ def poc_detail_compute():
                                 fund_marketcap = holdamount + (holdamount / 10000) * hold_fund_net
                                 user_funds_hold_temp[holdeticker] = fund_marketcap
                                 # 新建一个货币基金编号和市值的临时字典保存更新后的货币基金持有市值
+
                             user_marketcap_value = user_marketcap_value + fund_marketcap
                         user_marketcap[date] = user_marketcap_value + leftusermoney
                         for moneyfundticker, moneyfundamount in user_funds_hold_temp.items():
@@ -483,7 +668,7 @@ def poc_detail_compute():
                                     fund_fee = float(fund_fee_ratio) * float(fund_marketcap)
                                     # 计算基金赎回费用
                                     fund_marketcap = fund_marketcap - fund_fee
-                            elif fund_ticker in funds_profit["ticker"].values.tolist():
+                            elif holdeticker in funds_profit["ticker"].values.tolist():
                                 # 如果该基金是货币基金，则没有手续费，直接记录初次买入的金额
                                 hold_fund_net = rl.getFundsNetBefore_byTickerDate(holdeticker, date.replace("-", ""),
                                                                                   funds_profit,
@@ -504,11 +689,13 @@ def poc_detail_compute():
             time_cost += elapsed
             print("Time used:", elapsed)
             print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users) - time_cost)
-            company_detial.to_csv(il.cwd + r"\result\\" + company_file + "_result.csv")
+        company_detial.to_csv(il.cwd + r"\result\\" + company_file + "_result.csv")
 
 
 if __name__ == '__main__':
+    # poc_detail_compute()
     date_pairs = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
                   ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
     poc_sta(date_pairs)
-    # poc_detail_compute_nofee()
+    # poc_detail_compute()
+    # poc_maxdown()

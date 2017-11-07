@@ -86,9 +86,6 @@ def allweeks(year):
     return week_date
 
 
-def getholidaydic(yearlist):
-    for i in range(len(yearlist)):
-        year = yearlist[i]
 
 
 # 将年利率形式的收益表示为每天万份收益的表示形式
