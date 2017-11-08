@@ -33,7 +33,7 @@ datelist_possible_moneyfund = list(set(funds_profit["date"].values.tolist()))
 datelist_possible_moneyfund.sort(key=funds_profit["date"].values.tolist().index)
 
 
-def poc_sta(datepairs):
+def poc_sta(datepairs, filename):
     '''
         计算不同厂家给出的配置计算收益率和标准差明细
     '''
@@ -44,7 +44,7 @@ def poc_sta(datepairs):
         for startday_str_sta, endday_str_sta in datepairs:
             datelist_sta_temp = rl.dateRange(startday_str_sta, endday_str_sta)
             datelist_sta = [w for w in datelist_sta_temp if w.replace("-", "") in datelist_possible]
-            company_df1 = pd.read_csv(il.cwd + r"\result\\" + company_file + "_result_nofee.csv")
+            company_df1 = pd.read_csv(il.cwd + r"\result\\" + company_file + "_result" + filename + ".csv")
             company_df = company_df1.ix[:, 1:]
             if startday_str_sta not in company_df.columns:
                 company_df.insert(0, startday_str_sta, ini_money)
@@ -58,7 +58,7 @@ def poc_sta(datepairs):
             user_sta[startday_str_sta + "-" + endday_str_sta + "-year_rate"] = (
                 ((company_result_this_period.iloc[-1] - company_result_this_period.iloc[0]) /
                  company_result_this_period.iloc[0]) / (len(datelist_sta_temp) / 365))
-        user_sta.to_csv(il.cwd + r"\result\\" + company_file + "_sta_nofee.csv")
+        user_sta.to_csv(il.cwd + r"\result\\" + company_file + "_sta" + filename + ".csv")
         print(user_sta)
 
 
@@ -80,7 +80,7 @@ def getUserCombinationByDate(date, user_combination):
         combination_dates_list.sort()
         date_index = combination_dates_list.index(date)
         if date_index == 0:
-            return False
+            return return_dic
         else:
             combination_date = combination_dates_list[date_index - 1]
             combination_dates_df = user_combination[user_combination["date"] == combination_date]
@@ -94,21 +94,21 @@ def getUserCombinationByDate(date, user_combination):
             return return_dic
 
 
-def poc_net_everyday():
+def poc_net_everyday(company_file_names_net):
     '''
         计算不同厂家给出的配置每一天的净值,不计算费率和赎回过程中的资金延迟
     '''
     company_net_dic = {}
-    for company_file in company_file_names:
+    for company_file in company_file_names_net:
         # 对每一个公司给出的配置情况循环
         company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + company_file + ".csv")
         company_detial_maxdown = pd.DataFrame()
         time_cost = 0.0
         user_maxdown_dic = {}
         company_detial = pd.DataFrame()
-        for index, row in users.iterrows():
+        for index, row in users[:9].iterrows():
             start_out = time.clock()
-            print("计算第" + str(index) + "/" + str(len(users)) + "个用户的最大回撤.")
+            print("计算第" + str(index) + "/" + str(len(users)) + "个用户的组合净值.")
             # 对每一个用户循环
             userid = row["userid"]
             leftusermoney = usermoney = float(row["moneyamount"]) * 10000
@@ -126,29 +126,52 @@ def poc_net_everyday():
                                                                    funds_net,
                                                                    "%Y%m%d")
                         net_temp = net_temp + fund_net * float(value)
-                user_net_dic[date] = net_temp
+                if net_temp > 0:
+                    user_net_dic[date] = net_temp
             company_detial = company_detial.append(user_net_dic, ignore_index=True)
             elapsed = (time.clock() - start_out)
             time_cost += elapsed
-            print("Time used:", elapsed)
-            print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users) - time_cost)
+            print("Time used(s):", elapsed)
+            print("Time Left Estimated(m):", ((time_cost / (int(index) + 1)) * len(users) - time_cost) / 60)
+        print(company_detial)
+        company_detial.to_csv(il.cwd + r"\result\\" + company_file + "result_net_everyday.csv")
         company_net_dic[company_file] = company_detial
     return company_net_dic
 
 
-# def poc_maxdown_base_on_net():
-#     '''
-#         计算不同厂家给出的配置计算最大回撤，并输出为文件,不计算费率和赎回过程中的资金延迟
-#     '''
-#     company_net_dic = poc_net_everyday
-#     maxdown_user_dic = {}
-#     for company_name, company_net_detial_df in company_net_dic.items():
-#         for index,row in company_net_detial_df.iterrows():
-#             for datebuy in datelist[:len(datelist) - 1]:
-#                 datebuy_index = datelist.index(datebuy)
-#                 for datesell in datelist[datebuy_index + 1:]:
-#                     start = time.clock()
-#                     start_net =
+def poc_maxdown_base_on_net(company_file_names_maxdown):
+    '''
+        计算不同厂家给出的配置计算最大回撤，并输出为文件,不计算费率和赎回过程中的资金延迟
+    '''
+    company_detial = pd.DataFrame()
+    for company_file in company_file_names_maxdown:
+        company_net_detial_df = pd.read_csv(il.cwd + r"\result\\" + company_file + "result_net_everyday.csv",
+                                            dtype=float64)
+        company_net_detial_df = company_net_detial_df.ix[:, 1:]
+        maxdown_user_dic = {}
+        iloc_index = 0
+        time_cost = 0
+        for index, row in company_net_detial_df.T.iterrows():
+            if (iloc_index + 1) < len(company_net_detial_df.T):
+                iloc_index += 1
+                start = time.clock()
+                left_df = company_net_detial_df.T.iloc[iloc_index:]
+                left_df_describe = left_df.describe()
+                left_se_max = left_df_describe.T["max"]
+                down_se = (row - left_se_max) / row
+                if not bool(maxdown_user_dic):
+                    maxdown_user_dic = {w: down_se[w] for w in down_se.index}
+                else:
+                    maxdown_user_dic = {w: down_se[w] if down_se[w] < maxdown_user_dic[w] else maxdown_user_dic[w] for w
+                                        in down_se.index}
+                elapsed = (time.clock() - start)
+                time_cost += elapsed
+                print("Time used:", elapsed)
+                print("Time Left Estimated:",
+                      (time_cost / (int(iloc_index))) * len(company_net_detial_df.T) - time_cost)
+        company_detial = company_detial.append(maxdown_user_dic, ignore_index=True)
+    print(company_detial)
+    company_detial.to_csv(il.cwd + r"\result\\result_nofee_maxdown.csv")
 
 
 def poc_maxdown():
@@ -239,7 +262,8 @@ def getMoneyFund_Net(startdate, enddate, ticker):
     total_earn = 0
     for date in datelist_mondyfund:
         if date.replace("-", "") in money_fund_profit["date"].values.tolist():
-            total_earn = total_earn + float(money_fund_profit[money_fund_profit["date"] == date].iloc[0]["net"])
+            total_earn = total_earn + float(
+                money_fund_profit[money_fund_profit["date"] == date.replace("-", "")].iloc[0]["net"])
     return 1 + total_earn / 10000
 
 
@@ -694,8 +718,10 @@ def poc_detail_compute():
 
 if __name__ == '__main__':
     # poc_detail_compute()
-    date_pairs = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
-                  ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
-    poc_sta(date_pairs)
-    # poc_detail_compute()
+    # poc_detail_compute_nofee()
+    # date_pairs = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
+    #               ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
+    # poc_sta(date_pairs, "_nofee")
     # poc_maxdown()
+    # poc_net_everyday(company_file_names)
+    poc_maxdown_base_on_net(company_file_names)
