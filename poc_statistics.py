@@ -19,8 +19,8 @@ users = il.getZS_users()
 funds_net = il.getFunds_Net()
 funds_profit = il.getFunds_Profit()
 
-company_file_names = ["zs_sz"]
-# company_file_names = ["zs_sz","zs_betago","zs_kmrd"]
+# company_file_names = ["zs_sz"]
+company_file_names = ["zs_betago","zs_kmrd","zs_sz","zs_xj"]
 
 startday_str = "2017-07-01"
 endday_str = "2017-10-29"
@@ -106,7 +106,7 @@ def poc_net_everyday(company_file_names_net):
         time_cost = 0.0
         user_maxdown_dic = {}
         company_detial = pd.DataFrame()
-        for index, row in users[:9].iterrows():
+        for index, row in users.iterrows():
             start_out = time.clock()
             print("计算第" + str(index) + "/" + str(len(users)) + "个用户的组合净值.")
             # 对每一个用户循环
@@ -723,5 +723,5 @@ if __name__ == '__main__':
     #               ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
     # poc_sta(date_pairs, "_nofee")
     # poc_maxdown()
-    # poc_net_everyday(company_file_names)
+    poc_net_everyday(company_file_names)
     poc_maxdown_base_on_net(company_file_names)
