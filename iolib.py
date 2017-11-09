@@ -77,7 +77,7 @@ def getZS_Funds_Fee():
     zs_funds_pd = pd.DataFrame(columns=zs_funds_pd_columns)
     for index, row in funds_fee_raw.iterrows():
         ticker = funds_fee_raw.loc[index, "产品代码"]
-        if len(str(ticker)) == 6:
+        if len(str(ticker).strip()) == 6:
             fundsname = funds_fee_raw.loc[index, "产品简称"]
             fundstype = funds_fee_raw.loc[index, "产品类型"]
             fundsrisk = funds_fee_raw.loc[index, "风险等级"]
