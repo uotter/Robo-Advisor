@@ -138,9 +138,11 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside):
         funds_not_include = []
         funds_no_netdata = []
         time_cost = 0.0
+        count = 0
         for index, row in users_inside.iterrows():
+            count+=1
             start = time.clock()
-            print("计算第" + str(index) + "/" + str(len(users)) + "个用户.")
+            print("计算第" + str(count) + "/" + str(len(users_inside)) + "个用户.")
             # 对每一个用户循环
             userid = row["userid"]
             leftusermoney_nofee = usermoney_nofee = leftusermoney = usermoney = float(row["moneyamount"]) * 10000
@@ -432,7 +434,7 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside):
             elapsed = (time.clock() - start)
             time_cost += elapsed
             print("Time used:", elapsed)
-            print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users_inside) - time_cost)
+            print("Time Left Estimated:", (time_cost / (int(count))) * len(users_inside) - time_cost)
         company_detial.to_csv(il.cwd + r"\result\\" + company_file + "_result_" + poctype + ".csv")
         print("File saved:", il.cwd + r"\result\\" + company_file + "_result_" + poctype + ".csv")
         company_detial_nofee.to_csv(il.cwd + r"\result\\" + company_file + "_result_nofee_" + poctype + ".csv")
@@ -461,9 +463,11 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
         funds_not_include = []
         funds_no_netdata = []
         time_cost = 0.0
+        count = 0
         for index, row in users_inside.iterrows():
+            count+=1
             start = time.clock()
-            print("计算第" + str(index) + "/" + str(len(users)) + "个用户.")
+            print("计算第" + str(count) + "/" + str(len(users_inside)) + "个用户.")
             # 对每一个用户循环
             userid = row["userid"]
             leftusermoney = usermoney = float(row["moneyamount"]) * 10000
@@ -751,7 +755,7 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
             elapsed = (time.clock() - start)
             time_cost += elapsed
             print("Time used:", elapsed)
-            print("Time Left Estimated:", (time_cost / (int(index) + 1)) * len(users_inside) - time_cost)
+            print("Time Left Estimated:", (time_cost / (int(count))) * len(users_inside) - time_cost)
         company_detial.to_csv(il.cwd + r"\result\\" + company_file + "_result_" + poctype + ".csv")
         print("File saved:", il.cwd + r"\result\\" + company_file + "_result_" + poctype + ".csv")
         company_detial_net.to_csv(il.cwd + r"\result\\" + company_file + "_result_net_" + poctype + ".csv")
@@ -766,11 +770,11 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
 
 
 if __name__ == '__main__':
-    poctype_out = "zs_nofee"
+    poctype_out = "zs"
     company_file_names_poc = ["zs_kmrd", "zs_betago", "zs_sz", "zs_xj"]
     # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
     #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
     date_pairs = [("2017-07-01", "2017-10-31")]
-    # poc_detail_compute(company_file_names_poc, poctype_out, users)
-    poc_maxdown(company_file_names_poc, poctype_out)
-    poc_sta(date_pairs, poctype_out, company_file_names_poc)
+    poc_detail_compute_combine(company_file_names_poc, poctype_out, users[10:15])
+    # poc_maxdown(company_file_names_poc, poctype_out)
+    # poc_sta(date_pairs, poctype_out, company_file_names_poc)
