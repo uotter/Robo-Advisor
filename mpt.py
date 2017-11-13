@@ -44,12 +44,14 @@ def min_sharpe(weights):
 
 # 最小化收益的负值
 def min_return(weights):
-    return -opt_statistics(weights)[0] * 10000
+    # return -opt_statistics(weights)[0] * 10000
+    return -opt_statistics(weights)[0]
 
 
 # 定义一个函数对方差进行最小化
 def min_variance(weights):
-    return opt_statistics(weights)[1] * 100000
+    # return opt_statistics(weights)[1] * 100000
+    return opt_statistics(weights)[1]
 
 
 def MKOptimization(goalfunc, nof):
@@ -208,9 +210,13 @@ mpl.rcParams['font.sans-serif'] = ['simhei']
 
 funds_daily = il.getFunds_Everyday(startday_str="2017-01-01", endday_str="2017-08-31")
 # funds_daily = funds_daily[['depsoit', 'fund1', 'fund3']]
-nod = len(funds_daily)
-nof = len(funds_daily.columns)
-funds = getNetWorthFromDailyProfit(funds_daily)
+
+
+# funds = getNetWorthFromDailyProfit(funds_daily)
+funds = il.getZS_funds_net()
+nod = len(funds)
+nof = len(funds.columns)
+print("Read and Preprocess Data Complete")
 returns = np.log(funds / funds.shift(1))
 # return_np = np.random.randn(nof,nod)
 # returns = pd.DataFrame(return_np.T)
@@ -222,6 +228,7 @@ print(return_corr)
 # # return_covs = returns.cov() * nod
 optvs = MKOptimization(min_variance, nof)
 optss = MKOptimization(min_sharpe, nof)
+print("Optimization Complete")
 print(optvs)
 print(optss)
 print('maxsharp'+str(opt_statistics(optss['x'])))

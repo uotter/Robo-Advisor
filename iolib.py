@@ -159,7 +159,30 @@ def get_funds_pool_bytype(typelist):
     return funds_filter
 
 
+def getZS_funds_net():
+    '''
+        读取浙商代销的所有基金的每日净值
+    '''
+    funds_net_raw = getFunds_Net()
+    funds_discount_raw = getZS_Funds_discount()
+    zs_funds_set = set(funds_discount_raw["ticker"].values.tolist())
+    funds_net_raw = funds_net_raw[funds_net_raw["ticker"].isin(zs_funds_set)]
+    funds_net = pd.DataFrame(index=set(funds_net_raw["date"].values.tolist()))
+    for fund_ticker in zs_funds_set:
+        if fund_ticker in funds_net_raw["ticker"].values.tolist():
+            try:
+                fund_net_ticker = funds_net_raw[funds_net_raw["ticker"] == fund_ticker]
+                fund_net_ticker = fund_net_ticker.drop_duplicates("date")
+                fund_net_ticker = fund_net_ticker.set_index("date")
+                funds_net[fund_ticker] = fund_net_ticker["net"].astype('float64')
+            except ValueError as e:
+                print(fund_ticker)
+    funds_net = funds_net.sort_index()
+    funds_net = funds_net.fillna(method="pad")
+    funds_net = funds_net.fillna(method="bfill")
+    return funds_net
+
+
 if __name__ == '__main__':
-    zsfunds = getZS_Funds_Fee()
-    a = zsfunds[zsfunds["ticker"] == "050025"]
-    print(a)
+    zsfunds = getZS_funds_net()
+    print(zsfunds)

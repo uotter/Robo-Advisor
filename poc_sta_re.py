@@ -140,7 +140,8 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
                                          in maxdown_user_dic.keys()}
             company_maxdown_detial = pd.Series(maxdown_user_dic_positive)
             user_sta[filename + company_file + "_maxdown"] = company_maxdown_detial
-    user_sta.to_csv(il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + ".csv")
+    user_sta.to_csv(
+        il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + ".csv")
     print("File saved:",
           il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + ".csv")
     print(user_sta)
@@ -385,7 +386,7 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside):
     '''
     for company_file in company_file_names_poc:
         # 对每一个公司给出的配置情况循环
-        company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + company_file + ".csv")
+        company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + poctype + "_" + company_file + ".csv")
         company_detial = pd.DataFrame()
         company_detial_nofee = pd.DataFrame()
         company_detial_net = pd.DataFrame()
@@ -448,7 +449,7 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside):
                             if net_temp > 0:
                                 user_net[date] = net_temp
                     else:
-                        user_marketcap_value, user_marketcap_value_nofee, net_temp, funds_not_include, funds_no_netdata = sell_funds_combine(
+                        user_marketcap_value, user_marketcap_value_nofee, net_temp, funds_not_include_temp, funds_no_netdata_temp = sell_funds_combine(
                             date, user_funds_hold, user_funds_hold_nofee, user_funds_percent)
                         funds_not_include.extend(funds_not_include_temp)
                         funds_no_netdata.extend(funds_no_netdata_temp)
@@ -822,7 +823,7 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
 
 
 if __name__ == '__main__':
-    poctype_out_list = ["bs","zs"]
+    poctype_out_list = ["bs", "zs"]
     for poctype_out in poctype_out_list:
         company_file_names_poc = ["zs_kmrd", "zs_betago", "zs_sz", "zs_xj"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
@@ -830,6 +831,6 @@ if __name__ == '__main__':
         date_pairs = [("2017-07-01", "2017-10-31")]
         # poc_detail_compute_combine(company_file_names_poc, poctype_out, users)
         for startday_str_sta, endday_str_sta in date_pairs:
-                poc_sta_combine(startday_str_sta,endday_str_sta,poctype_out, company_file_names_poc)
-        # poc_maxdown(company_file_names_poc, poctype_out)
-        # poc_sta(date_pairs, poctype_out, company_file_names_poc)
+            poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc)
+            # poc_maxdown(company_file_names_poc, poctype_out)
+            # poc_sta(date_pairs, poctype_out, company_file_names_poc)
