@@ -61,8 +61,9 @@ def get_zscombination_by_date(startdate, enddate, funds_net_df):
     funds_ticker_list.sort()
     funds_input = funds_net_df[funds_ticker_list]
     funds_percent = getMW_MaxSharp(funds_input)
+    funds_log_return = np.log(funds_input / funds_input.shift(1))
     funds_weight_dic = {funds_ticker_list[w]: funds_percent[w] for w in range(len(funds_ticker_list))}
-    opt_sta_list = mpt.statistics(funds_input, funds_percent, len(datelist))
+    opt_sta_list = mpt.statistics(funds_log_return, funds_percent, len(datelist))
     return funds_weight_dic, opt_sta_list
 
 
@@ -95,7 +96,7 @@ if __name__ == '__main__':
                 change_dic["percent"] = percent
                 combination_df = combination_df.append(change_dic, ignore_index=True)
             current_return = new_return
-        elif (new_return - current_return) > 0.2:
+        elif (np.exp(new_return) - np.exp(current_return)) > 0.015:
             for fund, percent in funds_weight_dic.items():
                 change_dic = {}
                 change_dic["userid"] = 1

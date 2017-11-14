@@ -153,6 +153,17 @@ def getZS_users():
     return user_money_df
 
 
+def getZS_users_complete():
+    '''
+        读取用户列表
+    '''
+    users_raw = pd.read_csv(users_path, dtype=str)
+    user_money_df = users_raw[['客户id', '客户投资总金额（万）', '客户风险测评总分', '客户风险偏好类型']]
+    users_columns = ["userid", "moneyamount", "risk_score", "risk_type"]
+    user_money_df.columns = users_columns
+    return user_money_df
+
+
 def get_funds_pool_bytype(typelist):
     funds = pd.read_csv(fundspool_path, dtype=str)
     funds_filter = funds[funds["类型"].isin(typelist)]
