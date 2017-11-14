@@ -25,8 +25,16 @@ def dateRange(start, end, step=1, format="%Y-%m-%d"):
     return [strftime(strptime(start, format) + datetime.timedelta(i), format) for i in range(0, days, step)]
 
 
+# end是形如"2017-01-01"的字符串，表示结束时间，返回当天之前days天的日期列表（不包括end这一天）
+def dateRange_daysbefore(end, days, step=1, format="%Y-%m-%d"):
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    returnlist = [strftime(strptime(end, format) - datetime.timedelta(i), format) for i in range(0, days, step)]
+    returnlist.sort()
+    return returnlist
+
+
 # start和end是形如"2017-01-01"的字符串，分别表示开始时间和结束时间
-# 返回在开始时间和结束时间之间的日期字符串列表（不包括end这一天）
+# 返回在开始时间和结束时间之间的日期字符串列表（包括end这一天）
 def dateRange_endinclude(start, end, step=1, format="%Y-%m-%d"):
     strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
     days = (strptime(end, format) - strptime(start, format)).days + 1
@@ -84,8 +92,6 @@ def allweeks(year):
     print(week_date)
     print(week_date_start_end)
     return week_date
-
-
 
 
 # 将年利率形式的收益表示为每天万份收益的表示形式
@@ -366,46 +372,49 @@ def getFundsNetBefore_byTickerDate(ticker, date, funds_df, format="%Y-%m-%d"):
 
 
 if __name__ == '__main__':
-    cwd = os.getcwd()
-    fund1_path = cwd + r"\history_data\fund1.txt"
-    fund2_path = cwd + r"\history_data\fund2.txt"
-    fund3_path = cwd + r"\history_data\fund3.txt"
-    user_type_percent_path = cwd + r"\initial_percent\zengjinbao_v3_for_machine.csv"
-    result_path_csv = cwd + r"\result\zengjinbao_result.csv"
-    result_path_html = cwd + r"\result\zengjinbao_result.html"
-    percent_path_csv = cwd + r"\result\percent_result.csv"
-    compare_path_csv = cwd + r"\result\zengjinbao_result_compare.csv"
-    holiday_path = cwd + r"\usefuldata\holidays.csv"
-    shibor_path = cwd + r"\history_data\Shibor.csv"
-
-    fund1 = pd.read_csv(fund1_path).set_index("endDate")
-    fund2 = pd.read_csv(fund2_path).set_index("endDate")
-    fund3 = pd.read_csv(fund3_path).set_index("endDate")
-    shibor = pd.read_csv(shibor_path).set_index("date")
-    user_type_percent = pd.read_csv(user_type_percent_path)
-
-    startday_str = "2017-01-01"
+    # cwd = os.getcwd()
+    # fund1_path = cwd + r"\history_data\fund1.txt"
+    # fund2_path = cwd + r"\history_data\fund2.txt"
+    # fund3_path = cwd + r"\history_data\fund3.txt"
+    # user_type_percent_path = cwd + r"\initial_percent\zengjinbao_v3_for_machine.csv"
+    # result_path_csv = cwd + r"\result\zengjinbao_result.csv"
+    # result_path_html = cwd + r"\result\zengjinbao_result.html"
+    # percent_path_csv = cwd + r"\result\percent_result.csv"
+    # compare_path_csv = cwd + r"\result\zengjinbao_result_compare.csv"
+    # holiday_path = cwd + r"\usefuldata\holidays.csv"
+    # shibor_path = cwd + r"\history_data\Shibor.csv"
+    #
+    # fund1 = pd.read_csv(fund1_path).set_index("endDate")
+    # fund2 = pd.read_csv(fund2_path).set_index("endDate")
+    # fund3 = pd.read_csv(fund3_path).set_index("endDate")
+    # shibor = pd.read_csv(shibor_path).set_index("date")
+    # user_type_percent = pd.read_csv(user_type_percent_path)
+    #
+    # startday_str = "2017-01-01"
     endday_str = "2017-08-31"
-    startday = datetime.datetime.strptime(startday_str, '%Y-%m-%d')
-    endday = datetime.datetime.strptime(endday_str, '%Y-%m-%d')
-    datelist = dateRange(startday_str, endday_str, step=1, format="%Y-%m-%d")
-    holidays = pd.read_csv(holiday_path)
-    filter_str = "all"
-
-    fund1 = smoothfund(holidays, fund1)
-    fund2 = smoothfund(holidays, fund2)
-    fund3 = smoothfund(holidays, fund3)
-    # 活期存款利率
-    depsoit_current_rate = 0.0035
-    profit_rate = getConstantDepsoit(startday_str, endday_str, depsoit_current_rate)
-    # shibor作为活期存款
-    sort_date_shibor = (fillDepsoit(startday_str, endday_str, shibor, "depsoit_rate")).sort_index()
-    sort_date_shibor.loc["2017-01-01", "depsoit_rate"] = 2.589
-    sort_date_shibor.loc["2017-01-02", "depsoit_rate"] = 2.589
-    base_yearrate = sort_date_shibor
-    base_dayprofit = yearrate_to_dayprofit(base_yearrate, "depsoit_rate", "percent")
-    fundprofit = {"depsoit": base_dayprofit, "fund1": fund1, "fund2": fund2, "fund3": fund3}
-    fundpercent = {"depsoit": 0.873, "fund1": 0.04, "fund2": 0.001, "fund3": 0.086}
-    result = getCombinationProfit(fundpercent, fundprofit, "test")
-    r2 = statisticscompute(result, startday_str, endday_str, "test-combination_profit", format="%Y-%m-%d")
-    print(r2)
+    # startday = datetime.datetime.strptime(startday_str, '%Y-%m-%d')
+    # endday = datetime.datetime.strptime(endday_str, '%Y-%m-%d')
+    # datelist = dateRange(startday_str, endday_str, step=1, format="%Y-%m-%d")
+    # holidays = pd.read_csv(holiday_path)
+    # filter_str = "all"
+    #
+    # fund1 = smoothfund(holidays, fund1)
+    # fund2 = smoothfund(holidays, fund2)
+    # fund3 = smoothfund(holidays, fund3)
+    # # 活期存款利率
+    # depsoit_current_rate = 0.0035
+    # profit_rate = getConstantDepsoit(startday_str, endday_str, depsoit_current_rate)
+    # # shibor作为活期存款
+    # sort_date_shibor = (fillDepsoit(startday_str, endday_str, shibor, "depsoit_rate")).sort_index()
+    # sort_date_shibor.loc["2017-01-01", "depsoit_rate"] = 2.589
+    # sort_date_shibor.loc["2017-01-02", "depsoit_rate"] = 2.589
+    # base_yearrate = sort_date_shibor
+    # base_dayprofit = yearrate_to_dayprofit(base_yearrate, "depsoit_rate", "percent")
+    # fundprofit = {"depsoit": base_dayprofit, "fund1": fund1, "fund2": fund2, "fund3": fund3}
+    # fundpercent = {"depsoit": 0.873, "fund1": 0.04, "fund2": 0.001, "fund3": 0.086}
+    # result = getCombinationProfit(fundpercent, fundprofit, "test")
+    # r2 = statisticscompute(result, startday_str, endday_str, "test-combination_profit", format="%Y-%m-%d")
+    # print(r2)
+    days = 30
+    datelist_inside = dateRange_daysbefore(endday_str, days)
+    print(datelist_inside)

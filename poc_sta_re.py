@@ -823,13 +823,14 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
 
 
 if __name__ == '__main__':
-    poctype_out_list = ["bs"]
+    poctype_out_list = ["zs"]
     for poctype_out in poctype_out_list:
-        company_file_names_poc = ["kmrd", "betago", "sz"]
+        company_file_names_poc = ["zsmk"]
+        # company_file_names_poc = ["kmrd", "betago", "sz"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
         date_pairs = [("2017-07-01", "2017-10-31")]
-        # poc_detail_compute_combine(company_file_names_poc, poctype_out, users)
+        poc_detail_compute_combine(company_file_names_poc, poctype_out, users[0:1])
         for startday_str_sta, endday_str_sta in date_pairs:
             poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc)
             # poc_maxdown(company_file_names_poc, poctype_out)
