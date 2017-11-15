@@ -830,7 +830,7 @@ if __name__ == '__main__':
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
         date_pairs = [("2017-07-01", "2017-10-31")]
-        poc_detail_compute_combine(company_file_names_poc, poctype_out, users[0:1])
+        poc_detail_compute_combine(company_file_names_poc, poctype_out, users)
         for startday_str_sta, endday_str_sta in date_pairs:
             poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc)
             # poc_maxdown(company_file_names_poc, poctype_out)

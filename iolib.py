@@ -179,10 +179,36 @@ def getZS_funds_net():
     zs_funds_set = set(funds_discount_raw["ticker"].values.tolist())
     funds_net_raw = funds_net_raw[funds_net_raw["ticker"].isin(zs_funds_set)]
     funds_net = pd.DataFrame(index=set(funds_net_raw["date"].values.tolist()))
-    for fund_ticker in zs_funds_set:
+    zs_funds_set_list = list(zs_funds_set)
+    zs_funds_set_list.sort()
+    for fund_ticker in zs_funds_set_list:
         if fund_ticker in funds_net_raw["ticker"].values.tolist():
             try:
                 fund_net_ticker = funds_net_raw[funds_net_raw["ticker"] == fund_ticker]
+                fund_net_ticker = fund_net_ticker.drop_duplicates("date")
+                fund_net_ticker = fund_net_ticker.set_index("date")
+                funds_net[fund_ticker] = fund_net_ticker["net"].astype('float64')
+            except ValueError as e:
+                print(fund_ticker)
+    funds_net = funds_net.sort_index()
+    funds_net = funds_net.fillna(method="pad")
+    funds_net = funds_net.fillna(method="bfill")
+    return funds_net
+
+
+def getZS_funds_Profit():
+    '''
+        读取浙商代销的所有基金的每日净值
+    '''
+    funds_profit_raw = getFunds_Profit()
+    funds_discount_raw = getZS_Funds_discount()
+    zs_funds_set = set(funds_discount_raw["ticker"].values.tolist())
+    funds_profit_raw = funds_profit_raw[funds_profit_raw["ticker"].isin(zs_funds_set)]
+    funds_net = pd.DataFrame(index=set(funds_profit_raw["date"].values.tolist()))
+    for fund_ticker in zs_funds_set:
+        if fund_ticker in funds_profit_raw["ticker"].values.tolist():
+            try:
+                fund_net_ticker = funds_profit_raw[funds_profit_raw["ticker"] == fund_ticker]
                 fund_net_ticker = fund_net_ticker.drop_duplicates("date")
                 fund_net_ticker = fund_net_ticker.set_index("date")
                 funds_net[fund_ticker] = fund_net_ticker["net"].astype('float64')
