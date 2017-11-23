@@ -35,6 +35,7 @@ funds_tdays_path = cwd + r"\history_data\zs_tdays.csv"
 users_path = cwd + r"\history_data\zs_user.csv"
 funds_net_path = cwd + r"\history_data\funds_net.csv"
 funds_profit_path = cwd + r"\history_data\funds_profit.csv"
+funds_type_path = cwd + r"\history_data\funds_type.csv"
 
 
 def getFunds_Everyday(startday_str, endday_str):
@@ -109,6 +110,10 @@ def getZS_Company_combination(file_path):
     funds_combination_raw = pd.read_csv(file_path, dtype=str)
     combination_columns = ["userid", "date", "ticker", "name", "percent"]
     funds_combination_raw.columns = combination_columns
+    for index, row in funds_combination_raw.iterrows():
+        if len(row["ticker"]) < 6:
+            for i in range(6 - len(row["ticker"])):
+                row["ticker"] = "0" + row["ticker"]
     return funds_combination_raw
 
 
@@ -150,6 +155,7 @@ def getZS_users():
     user_money_df = users_raw[['客户id', '客户投资总金额（万）']]
     users_columns = ["userid", "moneyamount"]
     user_money_df.columns = users_columns
+    user_money_df = user_money_df.sort_values(by=["userid"])
     return user_money_df
 
 
@@ -168,6 +174,13 @@ def get_funds_pool_bytype(typelist):
     funds = pd.read_csv(fundspool_path, dtype=str)
     funds_filter = funds[funds["类型"].isin(typelist)]
     return funds_filter
+
+
+def get_funds_type():
+    funds_type_df = pd.read_csv(funds_type_path, dtype=str)
+    funds_type_columns = ["ticker", "name", "fund_type"]
+    funds_type_df.columns = funds_type_columns
+    return funds_type_df
 
 
 def getZS_funds_net():
@@ -198,7 +211,7 @@ def getZS_funds_net():
 
 def getZS_funds_Profit():
     '''
-        读取浙商代销的所有基金的每日净值
+        读取浙商代销的所有货币基金的每日万份收益
     '''
     funds_profit_raw = getFunds_Profit()
     funds_discount_raw = getZS_Funds_discount()

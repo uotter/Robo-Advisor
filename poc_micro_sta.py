@@ -33,7 +33,7 @@ datelist_possible_moneyfund.sort(key=funds_profit["date"].values.tolist().index)
 
 def poc_detail_corr(company_file_names_poc, poctype, users_inside):
     '''
-        计算不同厂家给出的配置相应的每日净值，并输出为文件
+        计算不同厂家给出的配置相关系数，并输出为文件
     '''
     funds_net_df = il.getZS_funds_net()
     company_detail = pd.DataFrame()
