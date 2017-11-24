@@ -68,8 +68,8 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
             profit_detail_bizhi_profit = company_result_this_period - company_result_this_period_shift
             result_des_bizhi = profit_detail_bizhi.describe().T
             result_des_bizhi_profit = profit_detail_bizhi_profit.describe().T
-            user_sta["0" + company_file + "_std_total_" + filename] = result_des_bizhi.pop("std") * np.sqrt(250)
-            user_sta["1" + company_file + "_std_profit_" + filename] = result_des_bizhi_profit.pop("std") * np.sqrt(250)
+            user_sta["0" + company_file + "_std_total_" + filename] = result_des_bizhi.pop("std")
+            user_sta["1" + company_file + "_std_year_" + filename] = result_des_bizhi_profit.pop("std") * np.sqrt(250)
             user_sta["2" + company_file + "_year_rate_" + filename] = (
                 ((company_result_this_period.iloc[-1] - company_result_this_period.iloc[0]) /
                  company_result_this_period.iloc[0]) / (len(datelist_sta_temp) / 365))
@@ -507,7 +507,7 @@ if __name__ == '__main__':
         # date_pairs = [(startdate_poc, enddate_poc)]
         users_dic_real = get_updated_users_by_company(startdate_poc, users, company_file_names_poc, poctype_out)
         datelist_in_poc_compute = rl.dateRange_endinclude(startdate_poc, enddate_poc)
-        poc_detail_compute_combine(company_file_names_poc, poctype_out, users_dic_real, datelist_in_poc_compute)
-        company_detail_concat(startdate_poc, company_file_names_poc, poctype_out, enddate_poc)
+        # poc_detail_compute_combine(company_file_names_poc, poctype_out, users_dic_real, datelist_in_poc_compute)
+        # company_detail_concat(startdate_poc, company_file_names_poc, poctype_out, enddate_poc)
         for startday_str_sta, endday_str_sta in date_pairs:
             poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc, enddate_poc)
