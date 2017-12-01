@@ -87,8 +87,8 @@ def poc_detail_corr(company_file_names_poc, poctype, users_inside):
 
 
 if __name__ == '__main__':
-    poctype_out_list = ["zs"]
+    poctype_out_list = ["bs"]
     for poctype_out in poctype_out_list:
         # company_file_names_poc = ["sz"]
-        company_file_names_poc = ["kmrd", "betago", "sz", "xj"]
+        company_file_names_poc = ["kmrd", "betago", "sz"]
         poc_detail_corr(company_file_names_poc, poctype_out, users)

@@ -180,12 +180,18 @@ def get_funds_type():
     funds_type_df = pd.read_csv(funds_type_path, dtype=str)
     funds_type_columns = ["ticker", "name", "fund_type"]
     funds_type_df.columns = funds_type_columns
-    return funds_type_df
+    funds_discount_raw = getZS_Funds_discount()
+    zs_funds_set = set(funds_discount_raw["ticker"].values.tolist())
+    funds_type_df = funds_type_df[funds_type_df["ticker"].isin(zs_funds_set)]
+    fund_type_list = list(set(funds_type_df["fund_type"].values.tolist()))
+    fund_type_list = [fund_type_list[i] for i in range(len(fund_type_list)) if not fund_type_list[i] == "货币型"]
+    return funds_type_df, fund_type_list
 
 
-def getZS_funds_net():
+def getZS_funds_net(fill=True):
     '''
         读取浙商代销的所有基金的每日净值
+        @:param fill 是否填充空缺值
     '''
     funds_net_raw = getFunds_Net()
     funds_discount_raw = getZS_Funds_discount()
@@ -204,8 +210,9 @@ def getZS_funds_net():
             except ValueError as e:
                 print(fund_ticker)
     funds_net = funds_net.sort_index()
-    funds_net = funds_net.fillna(method="pad")
-    funds_net = funds_net.fillna(method="bfill")
+    if fill:
+        funds_net = funds_net.fillna(method="pad")
+        funds_net = funds_net.fillna(method="bfill")
     return funds_net
 
 

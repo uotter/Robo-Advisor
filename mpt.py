@@ -41,24 +41,24 @@ def opt_statistics(weights):
 # 最小化夏普指数的负值
 def min_sharpe(weights, *args):
     return_df, days, riskfree = args[0], args[1], args[2]
-    return -statistics(return_df, weights, days,riskfree)[2]
+    return -statistics(return_df, weights, days, riskfree)[2]
 
 
 # 最小化收益的负值
 def min_return(weights, *args):
     # return -opt_statistics(weights)[0] * 10000
     return_df, days, riskfree = args[0], args[1], args[2]
-    return -statistics(return_df, weights, days,riskfree)[0]
+    return -statistics(return_df, weights, days, riskfree)[0]
 
 
 # 定义一个函数对方差进行最小化
 def min_variance(weights, *args):
     # return opt_statistics(weights)[1] * 100000
     return_df, days, riskfree = args[0], args[1], args[2]
-    return statistics(return_df, weights, days,riskfree)[1]
+    return statistics(return_df, weights, days, riskfree)[1]
 
 
-def MKOptimization(goalfunc, nof, return_df, nod, riskfree):
+def MKOptimization(goalfunc, nof, return_df, nod, riskfree, minpercent):
     """
         根据最优化目标函数求解马科维茨最优解
         goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
@@ -68,13 +68,13 @@ def MKOptimization(goalfunc, nof, return_df, nod, riskfree):
     # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
     cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
-    bnds = tuple((0, 1) for x in range(nof))
+    bnds = tuple((minpercent, 1) for x in range(nof))
     opts = sco.minimize(goalfunc, nof * [1. / nof, ], args=additional_args, method='SLSQP', bounds=bnds,
                         constraints=cons)
     return opts
 
 
-def MK_MaxReturn(nof, return_df, nod, riskfree):
+def MK_MaxReturn(nof, return_df, nod, riskfree, minpercent=0):
     """
         暴露给外部调用
         goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
@@ -84,13 +84,13 @@ def MK_MaxReturn(nof, return_df, nod, riskfree):
     # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
     cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
-    bnds = tuple((0, 1) for x in range(nof))
+    bnds = tuple((minpercent, 1) for x in range(nof))
     opts = sco.minimize(min_return, nof * [1. / nof, ], args=additional_args, method='SLSQP', bounds=bnds,
                         constraints=cons)
     return opts
 
 
-def MK_MaxSharp(nof, return_df, nod, riskfree):
+def MK_MaxSharp(nof, return_df, nod, riskfree, minpercent=0):
     """
         暴露给外部调用
         goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
@@ -100,13 +100,13 @@ def MK_MaxSharp(nof, return_df, nod, riskfree):
     # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
     cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
-    bnds = tuple((0, 1) for x in range(nof))
+    bnds = tuple((minpercent, 1) for x in range(nof))
     opts = sco.minimize(min_sharpe, nof * [1. / nof, ], args=additional_args, method='SLSQP', bounds=bnds,
                         constraints=cons)
     return opts
 
 
-def MK_MinVariance(nof, return_df, days, riskfree):
+def MK_MinVariance(nof, return_df, days, riskfree, minpercent=0):
     """
         暴露给外部调用
         goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
@@ -116,7 +116,7 @@ def MK_MinVariance(nof, return_df, days, riskfree):
     # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
     cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
     # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
-    bnds = tuple((0, 1) for x in range(nof))
+    bnds = tuple((minpercent, 1) for x in range(nof))
     opts = sco.minimize(min_variance, nof * [1. / nof, ], args=additional_args, method='SLSQP', bounds=bnds,
                         constraints=cons)
     return opts
@@ -152,7 +152,8 @@ def MCPlot(nof, returns):
 
 def EFPlot(goalfunc, nod, nof, opts, optv, return_df, riskfree):
     # 在不同目标收益率水平（target_returns）循环时，最小化的一个约束条件会变化。
-    target_returns = np.linspace(statistics(return_df, optv['x'], nod, riskfree)[0], statistics(return_df, optv['x'], nod, riskfree)[0] + 0.1, 30)
+    target_returns = np.linspace(statistics(return_df, optv['x'], nod, riskfree)[0],
+                                 statistics(return_df, optv['x'], nod, riskfree)[0] + 0.1, 30)
     # target_returns = np.linspace(0, 0.2, 30)
     target_variance = []
     target_returns_compute = []
@@ -165,7 +166,8 @@ def EFPlot(goalfunc, nod, nof, opts, optv, return_df, riskfree):
         index += 1
         print("计算第" + str(index) + "个有效前沿取样，共" + str(len(target_returns)) + "个有效前沿取样。")
         cons = (
-            {'type': 'eq', 'fun': lambda x: statistics(return_df, x, nod, riskfree)[0] - tar}, {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+            {'type': 'eq', 'fun': lambda x: statistics(return_df, x, nod, riskfree)[0] - tar},
+            {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
         res = sco.minimize(goalfunc, nof * [1. / nof, ], args=additional_args, method='SLSQP', bounds=bnds,
                            constraints=cons)
         target_variance.append(statistics(return_df, res['x'], nod, riskfree)[1])
@@ -196,9 +198,11 @@ def EFPlot(goalfunc, nod, nof, opts, optv, return_df, riskfree):
     # 叉号：有效前沿
     plt.scatter(target_variance, target_returns, c=target_returns / target_variance, marker='x')
     # 红星：标记最高sharpe组合
-    plt.plot(statistics(return_df, opts['x'], nod, riskfree)[1], statistics(return_df, opts['x'], nod, riskfree)[0], 'r*', markersize=15.0)
+    plt.plot(statistics(return_df, opts['x'], nod, riskfree)[1], statistics(return_df, opts['x'], nod, riskfree)[0],
+             'r*', markersize=15.0)
     # 黄星：标记最小方差组合
-    plt.plot(statistics(return_df, optv['x'], nod, riskfree)[1], statistics(return_df, optv['x'], nod, riskfree)[0], 'y*', markersize=15.0)
+    plt.plot(statistics(return_df, optv['x'], nod, riskfree)[1], statistics(return_df, optv['x'], nod, riskfree)[0],
+             'y*', markersize=15.0)
     plt.grid(True)
     plt.xlabel('expected volatility')
     plt.ylabel('expected return')
@@ -226,15 +230,28 @@ if __name__ == '__main__':
     # funds_daily = il.getFunds_Everyday(startday_str="2017-01-01", endday_str="2017-08-31")
     # funds_daily = funds_daily[['depsoit', 'fund1', 'fund3']]
     # funds = getNetWorthFromDailyProfit(funds_daily)
-    funds_net_df = il.getZS_funds_net()
-    k = 5
-    iteration = 100
-    eplison = 0.000000001
-    modelname = "test"
+    funds_net_df = il.getZS_funds_net(False)
+    funds_type_df, fund_type_list = il.get_funds_type()
     riskfree = 0.04
-    centroids, funds_with_labels, cluster_list = fs.load_model_return(funds_net_df, eplison, modelname)
-    funds_list = fs.funds_select(funds_with_labels, cluster_list, method="max_mean_sharp")
-    funds = funds_net_df[list(funds_list.values())]
+    minpercent = 0.1
+    # k = 5
+    # iteration = 100
+    # eplison = 0.000000001
+    # modelname = "test"
+
+    # centroids, funds_with_labels, cluster_list = fs.load_model_return(funds_net_df, eplison, modelname)
+    # funds_list = fs.funds_select(funds_with_labels, cluster_list, method="max_mean_sharp")
+    # funds = funds_net_df[list(funds_list.values())]
+    startdate = "2017-08-05"
+    enddate = "2017-10-29"
+    funds_net_df = funds_net_df.ix[startdate.replace("-", ""):enddate.replace("-", "")]
+    funds_net_count_nonnan_df = funds_net_df.count(axis=0)
+    for column_name in funds_net_df.columns.values.tolist():
+        if funds_net_count_nonnan_df.loc[column_name] <= 5:
+            funds_net_df = funds_net_df.drop(column_name, axis=1)
+    funds_net_df = funds_net_df.fillna(method="pad")
+    funds_net_df = funds_net_df.fillna(method="bfill")
+    funds = fs.type_return_avg(funds_net_df, fund_type_list, funds_type_df)
     # funds = pd.DataFrame(centroids, index=cluster_list)
     # funds = funds.T
     nod = len(funds)
@@ -250,11 +267,11 @@ if __name__ == '__main__':
     return_corr = returns.corr()
     print(return_corr)
     # # return_covs = returns.cov() * nod
-    optvs = MKOptimization(min_variance, nof, returns, nod,riskfree)
-    optss = MKOptimization(min_sharpe, nof, returns, nod,riskfree)
+    optvs = MKOptimization(min_variance, nof, returns, nod, riskfree, minpercent)
+    optss = MKOptimization(min_sharpe, nof, returns, nod, riskfree, minpercent)
     print("Optimization Complete")
     print(optvs)
     print(optss)
     print('maxsharp' + str(statistics(returns, optss['x'], nod, riskfree)))
     print('minvariance' + str(statistics(returns, optvs['x'], nod, riskfree)))
-    EFPlot(min_variance, nod, nof, optss, optvs, returns,riskfree)
+    EFPlot(min_variance, nod, nof, optss, optvs, returns, riskfree)
