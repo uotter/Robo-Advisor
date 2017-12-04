@@ -380,7 +380,7 @@ def buy_funds_combine(user_combination_date, date, usermoney, usermoney_nofee, p
     return user_funds_hold, user_funds_hold_nofee, leftusermoney, leftusermoney_nofee, user_funds_percent, net_temp, fund_fee_total, funds_not_include, funds_no_netdata
 
 
-def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside, datelist_in_poc_compute):
+def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside):
     '''
         计算不同厂家给出的配置相应的每日净值，并输出为文件
     '''
@@ -410,7 +410,7 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside, da
             user_net = {}
             last_change_date = ""
             last_market_value = 0
-            for date in datelist_in_poc_compute:
+            for date in datelist:
                 # print("当前回测日期为" + str(date) + ".")
                 # 对回测时间段内的每一个日期循环
                 user_combination_date = user_combination[user_combination["date"] == date]
@@ -478,28 +478,19 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside, da
             time_cost += elapsed
             print("Time used (sec):", elapsed)
             print("Time Left Estimated (min):", str(((time_cost / (int(count))) * len(users_inside) - time_cost) / 60))
-        lastdate_str = datelist_in_poc_compute[-1]
-        company_detial.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_" + poctype + "_" + lastdate_str + ".csv")
-        print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_" + poctype + "_" + lastdate_str + ".csv")
-        company_detial_nofee.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + poctype + "_" + lastdate_str + ".csv")
-        print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + poctype + "_" + lastdate_str + ".csv")
-        company_detial_net.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_net_" + poctype + "_" + lastdate_str + ".csv")
-        print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_net_" + poctype + "_" + lastdate_str + ".csv")
-        file = open(
-            il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + poctype + "_" + lastdate_str + ".txt", 'w')
+        company_detial.to_csv(il.cwd + r"\result\\" + company_file + "_result_combine_" + poctype + ".csv")
+        print("File saved:", il.cwd + r"\result\\" + company_file + "_result_combine_" + poctype + ".csv")
+        company_detial_nofee.to_csv(il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + poctype + ".csv")
+        print("File saved:", il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + poctype + ".csv")
+        company_detial_net.to_csv(il.cwd + r"\result\\" + company_file + "_result_combine_net_" + poctype + ".csv")
+        print("File saved:", il.cwd + r"\result\\" + company_file + "_result_combine_net_" + poctype + ".csv")
+        file = open(il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + poctype + ".txt", 'w')
         file.write("funds_not_include" + '\r\n')
         file.write(str(set(funds_not_include)) + '\r\n')
         file.write("funds_no_netdata" + '\r\n')
         file.write(str(set(funds_no_netdata)) + '\r\n')
         file.close()
-        print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + poctype + "_" + lastdate_str + ".txt")
+        print("File saved:", il.cwd + r"\result\\" + company_file + "_funds_reg_" + poctype + ".csv")
 
 
 def poc_detail_compute(company_file_names_poc, poctype, users_inside):
@@ -832,17 +823,14 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
 
 
 if __name__ == '__main__':
-    poctype_out_list = ["bs"]
+    poctype_out_list = ["zs"]
     for poctype_out in poctype_out_list:
-        # company_file_names_poc = ["zsmk"]
-        company_file_names_poc = ["kmrd", "betago", "sz"]
+        company_file_names_poc = ["zsmk"]
+        # company_file_names_poc = ["kmrd", "betago", "sz"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
-        date_pairs = [("2017-10-30", "2017-11-05")]
-        startdate_poc = "2017-10-30"
-        enddate_poc = "2017-11-05"
-        datelist_in_poc_compute = rl.dateRange(startdate_poc, enddate_poc)
-        poc_detail_compute_combine(company_file_names_poc, poctype_out, users, datelist_in_poc_compute)
+        date_pairs = [("2017-07-01", "2017-10-31")]
+        poc_detail_compute_combine(company_file_names_poc, poctype_out, users)
         for startday_str_sta, endday_str_sta in date_pairs:
             poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc)
             # poc_maxdown(company_file_names_poc, poctype_out)

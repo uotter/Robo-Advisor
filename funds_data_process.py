@@ -30,3 +30,15 @@ datelist_possible_moneyfund = list(set(funds_profit["date"].values.tolist()))
 datelist_possible_moneyfund.sort(key=funds_profit["date"].values.tolist().index)
 
 
+def get_supplier_tickers(poctype,company_file):
+    company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + poctype + "_" + company_file + ".csv")
+    company_ticker_dic = {}
+    company_date_set = set(company_df["date"].values.tolist())
+
+    for index2, row2 in company_df.iterrows():
+        # 对该公司对该用户组合在当天日期内的每个配置情况循环买入基金
+        fund_ticker = row2["ticker"]
+        # 基金编号
+        fund_percent = float(row2["percent"])
+        # 买入日期
+        fund_date = row2["date"]

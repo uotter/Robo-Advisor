@@ -155,7 +155,7 @@ def getZS_users():
     user_money_df = users_raw[['客户id', '客户投资总金额（万）']]
     users_columns = ["userid", "moneyamount"]
     user_money_df.columns = users_columns
-    user_money_df = user_money_df.sort_values(by=["userid"])
+    # user_money_df = user_money_df.sort_values(by=["userid"])
     return user_money_df
 
 

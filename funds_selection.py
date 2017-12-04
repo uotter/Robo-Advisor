@@ -37,15 +37,15 @@ datelist_possible_moneyfund = list(set(funds_profit["date"].values.tolist()))
 datelist_possible_moneyfund.sort(key=funds_profit["date"].values.tolist().index)
 
 
-def funds_cluster(k, iteration, funds_net_df, eplison, modelname):
+def funds_cluster(k, iteration, funds_net_df, epsilon, modelname):
     '''
         计算不同厂家给出的配置相应的每日净值，并输出为文件
     '''
 
     data = funds_raito = np.log(funds_net_df / funds_net_df.shift(1))
     data_zs = data.iloc[1:].T
-    # 归一化操作,eplison是为了防止标准差为0的情况干扰，但是有可能带来归一化后不准确的问题
-    # data_zs = (data_zs - data_zs.mean()) / (data_zs.std() + eplison)
+    # 归一化操作,epsilon是为了防止标准差为0的情况干扰，但是有可能带来归一化后不准确的问题
+    # data_zs = (data_zs - data_zs.mean()) / (data_zs.std() + epsilon)
     model = KMeans(n_clusters=k, n_jobs=4, max_iter=iteration, init='k-means++')  # 分为k类, 并发数4
     print("Cluster Start")
     model.fit(data_zs)  # 开始聚类
@@ -106,7 +106,7 @@ def funds_select(funds_with_labels, cluster_list, method="max_mean_profit"):
     return funds_list
 
 
-def funds_sta_for_type(funds_net_df, fund_type_list, funds_type_df,type_return_avg_df):
+def funds_sta_for_type(funds_net_df, fund_type_list, funds_type_df, type_return_avg_df):
     type_funds_dic = {}
     for fund_type in fund_type_list:
         type_value_avg = type_return_avg_df[fund_type]
@@ -121,18 +121,20 @@ def funds_sta_for_type(funds_net_df, fund_type_list, funds_type_df,type_return_a
             single_fund_return = single_fund / single_fund.shift(1)
             type_log_return_avg_df = type_log_return_avg_df.sort_index()
             single_fund_return = single_fund_return.sort_index()
-            type_log_return_avg_nd = type_log_return_avg_df.values
+            type_value_avg_nd = type_value_avg.values
             single_fund_return_nd = single_fund_return.values
-            vec_len = min(len(type_log_return_avg_nd), len(single_fund_return_nd))
-            type_log_return_avg_nd = type_log_return_avg_nd[1:vec_len]
+            vec_len = min(len(type_value_avg_nd), len(single_fund_return_nd))
+            type_value_avg_nd = type_value_avg_nd[1:vec_len]
             single_fund_return_nd = single_fund_return_nd[1:vec_len]
-            single_fund_dis = 1 / np.linalg.norm(type_log_return_avg_nd - single_fund_return_nd)
+            single_fund_dis = 1 / np.linalg.norm(type_value_avg_nd - single_fund_return_nd)
             single_fund_return = np.mean(single_fund_return_nd)
             single_fund_var = np.var(single_fund_return_nd)
-            single_fund_sharp = single_fund_return / single_fund_var
-            fund_sta_list = [single_fund_dis, single_fund_return, single_fund_var, single_fund_sharp]
-            fund_sta_df.loc[fund_ticker] = fund_sta_list
+            if not single_fund_var == 0:
+                single_fund_sharp = single_fund_return / single_fund_var
+                fund_sta_list = [single_fund_dis, single_fund_return, single_fund_var, single_fund_sharp]
+                fund_sta_df.loc[fund_ticker] = fund_sta_list
         min_max_scaler = prepro.MinMaxScaler(feature_range=(0.05, 0.95))
+        # print(fund_sta_df)
         fund_sta_nd_norm = min_max_scaler.fit_transform(fund_sta_df)
         fund_sta_df_norm = pd.DataFrame(fund_sta_nd_norm, columns=fund_sta_df.columns,
                                         index=fund_sta_df.index)
@@ -140,20 +142,50 @@ def funds_sta_for_type(funds_net_df, fund_type_list, funds_type_df,type_return_a
     return type_funds_dic
 
 
-def funds_select_for_type(funds_net_df, fund_type_list, funds_type_df,type_return_avg_df, funds_each_type=2,selectby="idissharp"):
-    type_funds_dic = funds_sta_for_type(funds_net_df, fund_type_list, funds_type_df,type_return_avg_df)
+def funds_sta_for_type_vec(funds_net_df, fund_type_list, funds_type_df, type_return_avg_df):
+    type_funds_dic = {}
+    for fund_type in fund_type_list:
+        type_value_avg = type_return_avg_df[fund_type]
+        fund_sta_df = pd.DataFrame(columns=["inverse-dis", "return", "var", "sharp"])
+        type_log_return_avg_df = type_value_avg / type_value_avg.shift(1)
+        funds_this_type_df = funds_type_df[funds_type_df["fund_type"] == fund_type]
+        funds_ticker_list_this_type = funds_this_type_df["ticker"].values.tolist()
+        funds_ticker_list_this_type = [funds_ticker_list_this_type[i] for i in range(
+            len(funds_ticker_list_this_type)) if funds_ticker_list_this_type[i] in funds_net_df.columns.tolist()]
+        funds_net_df_this_type = funds_net_df[funds_ticker_list_this_type]
+        funds_net_df_this_type_log_return = funds_net_df_this_type/funds_net_df_this_type.shift(1)
+        funds_net_df_this_type_des = funds_net_df_this_type_log_return.ix[1:].describe()
+
+        funds_net_df_with_this_type = funds_net_df_this_type_log_return.corrwith(type_log_return_avg_df)
+        fund_sta_df = funds_net_df_this_type_des.T
+        fund_sta_df["corr"] = funds_net_df_with_this_type
+        fund_sta_df["sharp"] = fund_sta_df["mean"]/fund_sta_df["std"]
+
+        fund_sta_df_norm = (fund_sta_df - fund_sta_df.min()) / (fund_sta_df.max() - fund_sta_df.min())
+        # print(fund_sta_df_norm)
+        type_funds_dic[fund_type] = fund_sta_df_norm
+    return type_funds_dic
+
+
+def funds_select_for_type(funds_net_df, fund_type_list, funds_type_df, type_return_avg_df, funds_each_type=2,
+                          selectby="corrsharp"):
+    start = time.clock()
+    type_funds_dic = funds_sta_for_type_vec(funds_net_df, fund_type_list, funds_type_df, type_return_avg_df)
+    elapsed = (time.clock() - start)
+    # print("funds_sta_for_type used:", elapsed)
+
     type_fundticker_dic = {}
     selected_fund_list = []
     for key, value in type_funds_dic.items():
         fund_sta_df_norm = value
         fund_type = key
-        fund_sta_df_norm.insert(4, "idissharp", fund_sta_df_norm["inverse-dis"] * fund_sta_df_norm["sharp"])
+        fund_sta_df_norm.insert(4, "corrsharp", fund_sta_df_norm["corr"] * fund_sta_df_norm["sharp"])
         fund_sta_df_norm = fund_sta_df_norm.sort_values(by=selectby, ascending=False)
         # print(fund_sta_df_norm)
         type_fundticker_dic[fund_type] = fund_sta_df_norm[
                                          :funds_each_type if funds_each_type <= len(fund_sta_df_norm) else len(
                                              fund_sta_df_norm)].index.values.tolist()
-        selected_fund_list.append(fund_sta_df_norm[:funds_each_type].index.values.tolist())
+        selected_fund_list.extend(type_fundticker_dic[fund_type])
     return type_fundticker_dic, selected_fund_list
 
 

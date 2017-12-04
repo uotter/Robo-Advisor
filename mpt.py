@@ -106,6 +106,24 @@ def MK_MaxSharp(nof, return_df, nod, riskfree, minpercent=0):
     return opts
 
 
+def MK_MaxSharp_with_Var(nof, return_df, nod, riskfree,var_goal, minpercent=0):
+    """
+        暴露给外部调用
+        goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
+        nof 组合所使用的产品数量
+    """
+    additional_args = (return_df, nod, riskfree)
+    # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
+    cons = (
+        {'type': 'eq', 'fun': lambda x: statistics(return_df, x, nod, riskfree)[1] - var_goal},
+        {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+    # 将参数值(权重)限制在0和1之间。这些值以多个元组组成的一个元组形式提供给最小化函数
+    bnds = tuple((minpercent, 1) for x in range(nof))
+    opts = sco.minimize(min_sharpe, nof * [1. / nof, ], args=additional_args, method='SLSQP', bounds=bnds,
+                        constraints=cons)
+    return opts
+
+
 def MK_MinVariance(nof, return_df, days, riskfree, minpercent=0):
     """
         暴露给外部调用
