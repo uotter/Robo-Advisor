@@ -305,6 +305,9 @@ def buy_funds_combine(user_combination_date, date, usermoney, usermoney_nofee, p
 
 
 def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names_list, poctype):
+    '''
+        读入最新的用户信息表，其中用户的资金数目会更新为最新的资产市值
+    '''
     users_info_dic = {}
     for company_file in company_file_names_list:
         user_df = oldusers_df.copy()
@@ -330,6 +333,9 @@ def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names
 
 
 def company_detail_concat(formaldate_str, company_file_names_list, poctype, lastdate_str):
+    '''
+        连接所有用户的每日市值表格
+    '''
     company_return_yuan = pd.DataFrame()
     for company_file in company_file_names_list:
         company_df1 = pd.read_csv(

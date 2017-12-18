@@ -345,6 +345,7 @@ def getFundsNetNext_byTickerDate(ticker, date, funds_df, format="%Y-%m-%d"):
     '''
         根据基金编号和基金日期返回基金净值或日万份收益,如果当天没有，则返回后面第一天的值，
         如果后面都没有值，则返回0
+        :param funds_df: 列表形式的基金净值dataframe，index为序号，date列为日期，ticker列为基金编号，net列为基金净值
     '''
     strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
     funds_ticker = funds_df[funds_df["ticker"] == ticker]
@@ -360,6 +361,7 @@ def getFundsNetBefore_byTickerDate(ticker, date, funds_df, format="%Y-%m-%d"):
     '''
         根据基金编号和基金日期返回基金净值或日万份收益,如果当天没有，则返回前面一天的值，
         如果前面都没有值，则返回0
+        :param funds_df: 列表形式的基金净值dataframe，index为序号，date列为日期，ticker列为基金编号，net列为基金净值
     '''
     strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
     funds_ticker = funds_df[funds_df["ticker"] == ticker]
@@ -369,6 +371,77 @@ def getFundsNetBefore_byTickerDate(ticker, date, funds_df, format="%Y-%m-%d"):
         if datetime.datetime.strptime(str(date), format) < datetime.datetime.strptime(str(datemin), format):
             return 0.0
     return float(funds_ticker[funds_ticker["date"] == date].iloc[0]["net"])
+
+def getFundsNetNext_byTickerDate_MartrixFundsDf(ticker, date, funds_df, format="%Y-%m-%d"):
+    '''
+        根据基金编号和基金日期返回基金净值或日万份收益,如果当天没有，则返回后面第一天的值，
+        如果后面都没有值，则返回0
+        :param funds_df: 矩阵形式的基金净值dataframe，index为日期，column为基金ticker，矩阵中的每一个值为基金净值
+    '''
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    funds_ticker = funds_df[ticker]
+    datemax = funds_ticker.index.tolist[-1]
+    while date not in funds_ticker.index.tolist():
+        date = strftime(strptime(date, format) + datetime.timedelta(days=1), format)
+        if datetime.datetime.strptime(str(date), format) > datetime.datetime.strptime(str(datemax), format):
+            return 0.0
+    return float(funds_ticker[date])
+
+
+def getFundsNetBefore_byTickerDate_MartrixFundsDf(ticker, date, funds_df, format="%Y-%m-%d"):
+    '''
+        根据基金编号和基金日期返回基金净值或日万份收益,如果当天没有，则返回前面一天的值，
+        如果前面都没有值，则返回0
+        :param funds_df: 矩阵形式的基金净值dataframe，index为日期，column为基金ticker，矩阵中的每一个值为基金净值
+    '''
+    strptime, strftime = datetime.datetime.strptime, datetime.datetime.strftime
+    funds_ticker = funds_df[ticker]
+    datemin = funds_ticker.index.tolist()[0]
+    while date not in funds_ticker.index.tolist():
+        date = strftime(strptime(date, format) + datetime.timedelta(days=-1), format)
+        if datetime.datetime.strptime(str(date), format) < datetime.datetime.strptime(str(datemin), format):
+            return 0.0
+    return float(funds_ticker[date])
+
+
+def getUserCombinationByDate(date, user_combination):
+    '''
+        根据日期得到用户的资金组合字典
+        :param date: 要获取的日期，str
+        :param user_combination:该用户的所有组合，dataframe
+        :return return_dic:基金组合，dic，key:基金编号，value:基金比例
+        :return combination_dates_df:基金组合，dataframe
+        :return date: 组合的日期，因为如果传入的日期没有组合数据的话，会选择最近的一个之前的日期，因此此处回传一下选择的日期，str
+    '''
+    return_dic = {}
+    combination_dates_list = list(set(user_combination["date"].values.tolist()))
+    if date in combination_dates_list:
+        combination_dates_df = user_combination[user_combination["date"] == date]
+        for index2, row2 in combination_dates_df.iterrows():
+            # 根据该用户在当天的组合情况计算其总净值
+            fund_ticker = row2["ticker"]
+            # 基金编号
+            fund_percent = float(row2["percent"])
+            # 基金比例
+            return_dic[fund_ticker] = fund_percent
+        return return_dic, combination_dates_df, date
+    else:
+        combination_dates_list.append(date)
+        combination_dates_list.sort()
+        date_index = combination_dates_list.index(date)
+        if date_index == 0:
+            return return_dic, pd.DataFrame(), "null"
+        else:
+            combination_date = combination_dates_list[date_index - 1]
+            combination_dates_df = user_combination[user_combination["date"] == combination_date]
+            for index2, row2 in combination_dates_df.iterrows():
+                # 根据该用户在当天的组合情况计算其总净值
+                fund_ticker = row2["ticker"]
+                # 基金编号
+                fund_percent = float(row2["percent"])
+                # 基金比例
+                return_dic[fund_ticker] = fund_percent
+            return return_dic, combination_dates_df, combination_date
 
 
 if __name__ == '__main__':

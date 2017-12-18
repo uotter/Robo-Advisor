@@ -172,6 +172,7 @@ def EFPlot(goalfunc, nod, nof, opts, optv, return_df, riskfree):
     # 在不同目标收益率水平（target_returns）循环时，最小化的一个约束条件会变化。
     target_returns = np.linspace(statistics(return_df, optv['x'], nod, riskfree)[0],
                                  statistics(return_df, optv['x'], nod, riskfree)[0] + 0.1, 30)
+    target_var = np.linspace(statistics(return_df, optv['x'], nod, riskfree)[1],statistics(return_df, opts['x'], nod, riskfree)[1],5)
     # target_returns = np.linspace(0, 0.2, 30)
     target_variance = []
     target_returns_compute = []
@@ -182,7 +183,7 @@ def EFPlot(goalfunc, nod, nof, opts, optv, return_df, riskfree):
     additional_args = (return_df, nod, riskfree)
     for tar in target_returns:
         index += 1
-        print("计算第" + str(index) + "个有效前沿取样，共" + str(len(target_returns)) + "个有效前沿取样。")
+        # print("计算第" + str(index) + "个有效前沿取样，共" + str(len(target_returns)) + "个有效前沿取样。")
         cons = (
             {'type': 'eq', 'fun': lambda x: statistics(return_df, x, nod, riskfree)[0] - tar},
             {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
@@ -190,8 +191,16 @@ def EFPlot(goalfunc, nod, nof, opts, optv, return_df, riskfree):
                            constraints=cons)
         target_variance.append(statistics(return_df, res['x'], nod, riskfree)[1])
         target_returns_compute.append(statistics(return_df, res['x'], nod, riskfree)[0])
+        # print(res['x'])
+        # print(statistics(return_df, res['x'], nod, riskfree))
+    target_ret = []
+    for var in target_var:
+        index += 1
+        res = MK_MaxSharp_with_Var(nof,return_df,nod,riskfree,var,0.1)
+        target_ret.append(statistics(return_df, res['x'], nod, riskfree)[0])
         print(res['x'])
         print(statistics(return_df, res['x'], nod, riskfree))
+
 
     target_variance = np.array(target_variance)
     port_returns = []
@@ -215,6 +224,8 @@ def EFPlot(goalfunc, nod, nof, opts, optv, return_df, riskfree):
     plt.scatter(port_variance, port_returns, c=port_returns / port_variance, marker='o')
     # 叉号：有效前沿
     plt.scatter(target_variance, target_returns, c=target_returns / target_variance, marker='x')
+    # 星号：给定风险下画前沿
+    plt.scatter(target_var, target_ret, c=target_ret / target_var, marker='*')
     # 红星：标记最高sharpe组合
     plt.plot(statistics(return_df, opts['x'], nod, riskfree)[1], statistics(return_df, opts['x'], nod, riskfree)[0],
              'r*', markersize=15.0)
@@ -251,7 +262,7 @@ if __name__ == '__main__':
     funds_net_df = il.getZS_funds_net(False)
     funds_type_df, fund_type_list = il.get_funds_type()
     riskfree = 0.04
-    minpercent = 0.1
+    minpercent = 0.2
     # k = 5
     # iteration = 100
     # eplison = 0.000000001
@@ -287,9 +298,14 @@ if __name__ == '__main__':
     # # return_covs = returns.cov() * nod
     optvs = MKOptimization(min_variance, nof, returns, nod, riskfree, minpercent)
     optss = MKOptimization(min_sharpe, nof, returns, nod, riskfree, minpercent)
+    optss_free = MKOptimization(min_sharpe, nof, returns, nod, riskfree, 0)
+    optvs_free = MKOptimization(min_variance, nof, returns, nod, riskfree, 0)
+    element_list = returns.columns.tolist()
+    for i in range(len(element_list)):
+        print(element_list[i]+":"+str(optss['x'][i]))
     print("Optimization Complete")
     print(optvs)
     print(optss)
     print('maxsharp' + str(statistics(returns, optss['x'], nod, riskfree)))
     print('minvariance' + str(statistics(returns, optvs['x'], nod, riskfree)))
-    EFPlot(min_variance, nod, nof, optss, optvs, returns, riskfree)
+    EFPlot(min_variance, nod, nof, optss_free, optvs_free, returns, riskfree)

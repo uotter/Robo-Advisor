@@ -75,6 +75,12 @@ def poc_sta(datepairs, filename):
 
 
 def getUserCombinationByDate(date, user_combination):
+    '''
+        根据日期得到用户的资金组合字典
+        :param date: 要获取的日期，str
+        :param user_combination:该用户的所有组合，dataframe
+        :return return_dic:基金组合，dic，key:基金编号，value:基金比例
+    '''
     return_dic = {}
     combination_dates_list = list(set(user_combination["date"].values.tolist()))
     if date in combination_dates_list:

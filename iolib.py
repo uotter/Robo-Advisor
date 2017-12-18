@@ -36,6 +36,7 @@ users_path = cwd + r"\history_data\zs_user.csv"
 funds_net_path = cwd + r"\history_data\funds_net.csv"
 funds_profit_path = cwd + r"\history_data\funds_profit.csv"
 funds_type_path = cwd + r"\history_data\funds_type.csv"
+index_net_path = cwd + r"\history_data\index_net.csv"
 
 
 def getFunds_Everyday(startday_str, endday_str):
@@ -117,6 +118,24 @@ def getZS_Company_combination(file_path):
     return funds_combination_raw
 
 
+def getZS_Company_combination_by_excel(file_path):
+    '''
+        读取公司的组合配置结果
+    '''
+    funds_combination_raw = pd.read_excel(file_path, dtype=str)
+    combination_columns_old = ["userid", "date", "ticker", "name", "percent","type"]
+    combination_columns_new = ["userid", "date", "ticker", "name", "percent","risk_score","risk_type","type"]
+    try:
+        funds_combination_raw.columns = combination_columns_old
+    except:
+        funds_combination_raw.columns = combination_columns_new
+    for index, row in funds_combination_raw.iterrows():
+        if len(row["ticker"]) < 6:
+            for i in range(6 - len(row["ticker"])):
+                row["ticker"] = "0" + row["ticker"]
+    return funds_combination_raw
+
+
 def getZS_Funds_tdays():
     '''
         读取基金赎回的到账日期
@@ -159,11 +178,11 @@ def getZS_users():
     return user_money_df
 
 
-def getZS_users_complete():
+def getZS_users_complete(users_file_path = users_path):
     '''
         读取用户列表
     '''
-    users_raw = pd.read_csv(users_path, dtype=str)
+    users_raw = pd.read_csv(users_file_path, dtype=str)
     user_money_df = users_raw[['客户id', '客户投资总金额（万）', '客户风险测评总分', '客户风险偏好类型']]
     users_columns = ["userid", "moneyamount", "risk_score", "risk_type"]
     user_money_df.columns = users_columns
@@ -174,6 +193,27 @@ def get_funds_pool_bytype(typelist):
     funds = pd.read_csv(fundspool_path, dtype=str)
     funds_filter = funds[funds["类型"].isin(typelist)]
     return funds_filter
+
+
+def get_index_net_matrix(start_date_str, end_date_str, fill=True):
+    index_return_df = pd.DataFrame()
+    datelist = rl.dateRange(start_date_str, end_date_str)
+    index_net_raw = pd.read_csv(index_net_path, dtype="str")
+    index_net = index_net_raw[["icode", "mcap", "tdate"]]
+    index_net_columns = ["symbol", "mcap", "date"]
+    index_net.columns = index_net_columns
+    index_net = index_net[index_net["date"].isin(datelist)]
+    index_symbol_list = list(set(index_net["symbol"].values.tolist()))
+    for symbol in index_symbol_list:
+        sub_index_df = index_net[index_net["symbol"] == symbol]
+        sub_index_df = sub_index_df.set_index("date")
+        sub_index_mcap_df = sub_index_df["mcap"].astype('float64')
+        index_return_df.insert(0, symbol, sub_index_mcap_df)
+    index_return_df = index_return_df.sort_index()
+    if fill:
+        index_return_df = index_return_df.fillna(method="pad")
+        index_return_df = index_return_df.fillna(method="bfill")
+    return index_return_df
 
 
 def get_funds_type():
@@ -191,7 +231,7 @@ def get_funds_type():
 def getZS_funds_net(fill=True):
     '''
         读取浙商代销的所有基金的每日净值
-        @:param fill 是否填充空缺值
+        :param fill: 是否填充空缺值 boolean
     '''
     funds_net_raw = getFunds_Net()
     funds_discount_raw = getZS_Funds_discount()
@@ -241,5 +281,7 @@ def getZS_funds_Profit():
 
 
 if __name__ == '__main__':
-    zsfunds = getZS_funds_net()
-    print(zsfunds)
+    start_date_str = "2017-07-01"
+    end_date_str = "2017-12-10"
+    index_net_df = get_index_net_matrix(start_date_str, end_date_str, fill=True)
+    print(index_net_df)

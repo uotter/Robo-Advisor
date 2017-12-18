@@ -69,7 +69,7 @@ def poc_sta(datepairs, poctype, company_file_names_sta):
             std_df = company_result_this_period_net / company_result_this_period_net_shift
             result_std_des = std_df.describe().T
             profit_detail = (
-                                company_result_this_period - company_result_this_period_shift) / company_result_this_period_shift
+                                    company_result_this_period - company_result_this_period_shift) / company_result_this_period_shift
             profit_detail_bizhi = company_result_this_period / company_result_this_period_shift
             result_des = profit_detail.describe().T
             result_des_bizhi = profit_detail_bizhi.describe().T
@@ -77,14 +77,14 @@ def poc_sta(datepairs, poctype, company_file_names_sta):
                 250)
             # user_sta["std_net-" + startday_str_sta + "-" + endday_str_sta] = result_std_des.pop("std") * np.sqrt(250)
             user_sta["year_rate-" + startday_str_sta + "-" + endday_str_sta] = (
-                ((company_result_this_period.iloc[-1] - company_result_this_period.iloc[0]) /
-                 company_result_this_period.iloc[0]) / (len(datelist_sta_temp) / 365))
+                    ((company_result_this_period.iloc[-1] - company_result_this_period.iloc[0]) /
+                     company_result_this_period.iloc[0]) / (len(datelist_sta_temp) / 365))
         user_sta.to_csv(il.cwd + r"\result\\" + company_file + "_sta_" + poctype + ".csv")
         print("File saved:", il.cwd + r"\result\\" + company_file + "_sta_" + poctype + ".csv")
         print(user_sta)
 
 
-def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_names_sta):
+def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_names_sta, symbolstr):
     '''
         计算不同厂家给出的配置计算收益率和标准差明细
     '''
@@ -98,7 +98,7 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
         filenames = ["", "nofee_"]
         for filename in filenames:
             company_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + filename + poctype + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + filename + poctype + ".csv")
             company_df = company_df1.ix[:, 1:]
             if startday_str_sta not in company_df.columns:
                 company_df.insert(0, startday_str_sta, ini_money)
@@ -110,8 +110,8 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
             result_des_bizhi = profit_detail_bizhi.describe().T
             user_sta[filename + company_file + "_std_total"] = result_des_bizhi.pop("std") * np.sqrt(250)
             user_sta[filename + company_file + "_year_rate"] = (
-                ((company_result_this_period.iloc[-1] - company_result_this_period.iloc[0]) /
-                 company_result_this_period.iloc[0]) / (len(datelist_sta_temp) / 365))
+                    ((company_result_this_period.iloc[-1] - company_result_this_period.iloc[0]) /
+                     company_result_this_period.iloc[0]) / (len(datelist_sta_temp) / 365))
             # 以下计算最大回撤
             maxdown_user_dic = {}
             iloc_index = 0
@@ -141,9 +141,9 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
             company_maxdown_detial = pd.Series(maxdown_user_dic_positive)
             user_sta[filename + company_file + "_maxdown"] = company_maxdown_detial
     user_sta.to_csv(
-        il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + ".csv")
+        il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + symbolstr + "_" + poctype + ".csv")
     print("File saved:",
-          il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + ".csv")
+          il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + symbolstr + "_" + poctype + ".csv")
     print(user_sta)
 
 
@@ -380,7 +380,7 @@ def buy_funds_combine(user_combination_date, date, usermoney, usermoney_nofee, p
     return user_funds_hold, user_funds_hold_nofee, leftusermoney, leftusermoney_nofee, user_funds_percent, net_temp, fund_fee_total, funds_not_include, funds_no_netdata
 
 
-def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside):
+def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside, symbolstr):
     '''
         计算不同厂家给出的配置相应的每日净值，并输出为文件
     '''
@@ -478,13 +478,20 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside):
             time_cost += elapsed
             print("Time used (sec):", elapsed)
             print("Time Left Estimated (min):", str(((time_cost / (int(count))) * len(users_inside) - time_cost) / 60))
-        company_detial.to_csv(il.cwd + r"\result\\" + company_file + "_result_combine_" + poctype + ".csv")
-        print("File saved:", il.cwd + r"\result\\" + company_file + "_result_combine_" + poctype + ".csv")
-        company_detial_nofee.to_csv(il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + poctype + ".csv")
-        print("File saved:", il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + poctype + ".csv")
-        company_detial_net.to_csv(il.cwd + r"\result\\" + company_file + "_result_combine_net_" + poctype + ".csv")
-        print("File saved:", il.cwd + r"\result\\" + company_file + "_result_combine_net_" + poctype + ".csv")
-        file = open(il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + poctype + ".txt", 'w')
+        company_detial.to_csv(
+            il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + ".csv")
+        print("File saved:",
+              il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + ".csv")
+        company_detial_nofee.to_csv(
+            il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_nofee_" + poctype + ".csv")
+        print("File saved:",
+              il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_nofee_" + poctype + ".csv")
+        company_detial_net.to_csv(
+            il.cwd + r"\result\\" + company_file + "_result_combine_net_" + symbolstr + "_" + poctype + ".csv")
+        print("File saved:",
+              il.cwd + r"\result\\" + company_file + "_result_combine_net_" + symbolstr + "_" + poctype + ".csv")
+        file = open(il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + symbolstr + "_" + poctype + ".txt",
+                    'w')
         file.write("funds_not_include" + '\r\n')
         file.write(str(set(funds_not_include)) + '\r\n')
         file.write("funds_no_netdata" + '\r\n')
@@ -590,7 +597,7 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
                                                 discount = float(row3["discount"])
                                                 if fund_fee_base < tmax:
                                                     fund_fee = fund_fee + (
-                                                                              fund_fee_base - tmin) * discount * fund_fee_ratio
+                                                            fund_fee_base - tmin) * discount * fund_fee_ratio
                                                     break
                                                 else:
                                                     fund_fee = fund_fee + (tmax - tmin) * discount * fund_fee_ratio
@@ -770,7 +777,7 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
                                                 discount = float(row3["discount"])
                                                 if fund_fee_base < tmax:
                                                     fund_fee = fund_fee + (
-                                                                              fund_fee_base - tmin) * discount * fund_fee_ratio
+                                                            fund_fee_base - tmin) * discount * fund_fee_ratio
                                                     break
                                                 else:
                                                     fund_fee = fund_fee + (tmax - tmin) * discount * fund_fee_ratio
@@ -824,14 +831,15 @@ def poc_detail_compute(company_file_names_poc, poctype, users_inside):
 
 if __name__ == '__main__':
     poctype_out_list = ["zs"]
+    symbolstr = "test"
     for poctype_out in poctype_out_list:
         company_file_names_poc = ["zsmk"]
         # company_file_names_poc = ["kmrd", "betago", "sz"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
         date_pairs = [("2017-07-01", "2017-10-31")]
-        poc_detail_compute_combine(company_file_names_poc, poctype_out, users)
+        poc_detail_compute_combine(company_file_names_poc, poctype_out, users,symbolstr)
         for startday_str_sta, endday_str_sta in date_pairs:
-            poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc)
+            poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc,symbolstr)
             # poc_maxdown(company_file_names_poc, poctype_out)
             # poc_sta(date_pairs, poctype_out, company_file_names_poc)
