@@ -15,6 +15,7 @@ import time as time
 import poc_zs as zsmk
 import datetime as datetime
 
+
 def get_return_by_combination(funds_weight_dic_inside, start_date, end_date, funds_net_compute_return):
     """
         计算给定的组合从start_date到end_date时间内的收益率
@@ -56,3 +57,62 @@ def get_best_moneyfundticker(endday_str, days_before, funds_profit_df, method="m
         funds_profit_mean_df = funds_profit_df.mean().T
         fund_ticker = funds_profit_mean_df.idxmax()
     return fund_ticker
+
+
+def get_ZScom_by_var(return_df, riskfree, typenum, minpercent):
+    """
+        计算给定的资产库被分成typenum-1份时各个份的资产权重，实际是计算不同风险下的最优投资组合
+        :param return_df：资产库净值序列，dataframe
+        :param riskfree: 无风险收益，float
+        :param typenum: 总的用户风险类别，int
+        :param minpercent:基金最小比重，float
+        :return type_weight_list: 各个类别对应的权重列表，dic
+        :return target_ret: 各个类别对应的对数收益率，list
+        :return target_var: 各个类别对应的对数波动率，list
+    """
+    type_weight_list = []
+    log_return_df = np.log(return_df / return_df.shift(1))
+    nod = len(log_return_df)
+    type_list = log_return_df.columns.tolist()
+    nof = len(type_list)
+    optsharp_free = mpt.MK_MaxSharp(nof, log_return_df, nod, riskfree, minpercent)
+    optvar_free = mpt.MK_MinVariance(nof, log_return_df, nod, riskfree, minpercent)
+    target_var = np.linspace(mpt.statistics(log_return_df, optvar_free['x'], nod, riskfree)[1],
+                             mpt.statistics(log_return_df, optsharp_free['x'], nod, riskfree)[1], typenum - 1)
+    target_ret = []
+    index = 0
+    for var in target_var:
+        index += 1
+        res = mpt.MK_MaxSharp_with_Var(nof, log_return_df, nod, riskfree, var, minpercent)
+        type_weight_list.append(res['x'])
+        target_ret.append(mpt.statistics(log_return_df, res['x'], nod, riskfree)[0])
+        # print(res['x'])
+        # print(mpt.statistics(return_df, res['x'], nod, riskfree))
+    return type_weight_list, target_ret, target_var
+
+
+def get_user_fund_weight_by_risk(type_weight_list, fund_type_list, type_fundticker_dic, userriskscore):
+    total_net_percent = 1.0
+    com_index = 0
+    if float(userriskscore) > 80:
+        com_index = -1
+    elif float(userriskscore) > 60:
+        com_index = -2
+        total_net_percent = float(userriskscore) / 100.0
+    elif float(userriskscore) > 40:
+        com_index = -3
+        total_net_percent = float(userriskscore) / 100.0
+    elif float(userriskscore) > 20:
+        com_index = -4
+        total_net_percent = float(userriskscore) / 100.0
+    type_weight = type_weight_list[com_index]
+    funds_weight_dic = {}
+    for i in range(len(fund_type_list)):
+        type = fund_type_list[i]
+        fund_weight_detail = type_weight[i]
+        funds_list = type_fundticker_dic[type]
+        funds_num = len(funds_list)
+        fund_weight = fund_weight_detail / funds_num
+        for fund in funds_list:
+            funds_weight_dic[fund] = fund_weight
+    return funds_weight_dic, total_net_percent

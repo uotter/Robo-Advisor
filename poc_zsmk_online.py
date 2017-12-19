@@ -4,13 +4,14 @@ Created on Thu Sep 14 15:42:12 2017
 
 @author: wangm
 """
+import os as os
 import numpy as np
 import robolib as rl
 from pylab import *
 import pandas as pd
 import iolib as il
 import time as time
-import poc_zs as zsmk
+import zsmk_util as zsmk
 import funds_selection as fs
 import mpt as mpt
 
@@ -73,7 +74,7 @@ def get_ZScom_online(user_detail_df, company_combination, current_date, daysbefo
     funds_net_df_fill = funds_net_df_fill.fillna(method="bfill")
     type_return_avg_df = fs.type_return_avg(funds_net_df_fill, fund_type_list, funds_type_df)
     combination_change_flag = False
-    user_type_num = len(set(user_detail_df["risk_type"].values.tolist()))
+    type_num = len(set(user_detail_df["risk_type"].values.tolist()))
     for index, row in user_detail_df.iterrows():
         userid = row["userid"]
         usermoneyamount = row["moneyamount"]
@@ -114,29 +115,24 @@ def get_ZScom_online(user_detail_df, company_combination, current_date, daysbefo
                 type_return_avg_pass_df = type_return_avg_df.ix[
                                           start_date.replace("-", ""):end_date.replace("-", "")]
                 log_return_df = np.log(type_return_avg_pass_df / type_return_avg_pass_df.shift(1))
-                funds_percent = zsmk.getMW_MaxSharp(type_return_avg_df, riskfree, minpercent, 0)
-                nod = len(type_return_avg_df)
-                max_var = mpt.statistics(log_return_df, funds_percent, nod, riskfree)[1]
-                funds_percent = zsmk.getMW_MinVariance(type_return_avg_df, riskfree, minpercent)
-                min_var = mpt.statistics(log_return_df, funds_percent, nod, riskfree)[1]
-                total_net_percent = 1.0
-                if float(userriskscore) > 80:
-                    var_goal = 0
-                elif float(userriskscore) > 60:
-                    var_goal = min_var+(max_var-min_var)*(3.0/4.0)
-                elif float(userriskscore) > 40:
-                    var_goal = min_var+(max_var-min_var)*(2.0/4.0)
-                elif float(userriskscore) > 20:
-                    var_goal = min_var+(max_var-min_var)*(1.0/4.0)
-                funds_weight_dic, opt_sta_list = zsmk.get_ZScom_by_date_by_type(start_date, end_date,
-                                                                                funds_net_inside,
-                                                                                riskfree, minpercent,
-                                                                                log_return_df, var_goal)
+                type_weight_list, target_ret, target_var = zsmk.get_ZScom_by_var(type_return_avg_pass_df, riskfree,
+                                                                                 type_num, minpercent)
+                type_fundticker_dic, selected_fund_list = fs.funds_select_for_type(funds_net_inside, fund_type_list,
+                                                                                   funds_type_df,
+                                                                                   type_return_avg_pass_df,
+                                                                                   funds_each_type=2,
+                                                                                   selectby="corr")
+                funds_weight_dic, total_net_percent = zsmk.get_user_fund_weight_by_risk(type_weight_list,
+                                                                                        fund_type_list,
+                                                                                        type_fundticker_dic,
+                                                                                        userriskscore)
+
                 current_return = get_return_by_combination(funds_weight_dic, start_date, end_date,
                                                            funds_net_inside)
                 if current_return - original_return > change_return_differ:
                     combination_change_flag = True
-                    combination_df_inside = pd.DataFrame(columns=["userid", "date", "ticker", "name", "percent", "type"])
+                    combination_df_inside = pd.DataFrame(
+                        columns=["userid", "date", "ticker", "name", "percent", "type"])
                     for fund, percent in funds_weight_dic.items():
                         change_dic = {}
                         change_dic["userid"] = userid
@@ -144,7 +140,8 @@ def get_ZScom_online(user_detail_df, company_combination, current_date, daysbefo
                         change_dic["ticker"] = fund
                         change_dic["name"] = funds_type_df[funds_type_df["ticker"] == fund]["name"].values.tolist()[0]
                         change_dic["percent"] = float(percent) * total_net_percent
-                        change_dic["type"] = funds_type_df[funds_type_df["ticker"] == fund]["fund_type"].values.tolist()[0]
+                        change_dic["type"] = \
+                        funds_type_df[funds_type_df["ticker"] == fund]["fund_type"].values.tolist()[0]
                         combination_df_inside = combination_df_inside.append(change_dic, ignore_index=True)
                     change_dic = {}
                     change_dic["userid"] = userid
@@ -154,7 +151,8 @@ def get_ZScom_online(user_detail_df, company_combination, current_date, daysbefo
                         funds_type_df[funds_type_df["ticker"] == moneyfund_ticker_for_net]["name"].values.tolist()[0]
                     change_dic["percent"] = 1 - total_net_percent
                     change_dic["type"] = \
-                        funds_type_df[funds_type_df["ticker"] == moneyfund_ticker_for_net]["fund_type"].values.tolist()[0]
+                        funds_type_df[funds_type_df["ticker"] == moneyfund_ticker_for_net]["fund_type"].values.tolist()[
+                            0]
                     combination_df_inside = combination_df_inside.append(change_dic, ignore_index=True)
                     zs_combination_df = zs_combination_df.append(combination_df_inside, ignore_index=True)
                 else:
@@ -179,7 +177,8 @@ if __name__ == '__main__':
     datelist_out = rl.dateRange(combination_startdate, combination_enddate)
     funds_net_df_out = il.getZS_funds_net(fill=False)
     funds_profit_df = il.getZS_funds_Profit()
-    user_detail_df = il.getZS_users_complete()
+    # user_detail_df = il.getZS_users_complete()
+    user_detail_df = il.getZS_users_complete(os.getcwd() + r"\history_data\zs_user_test.csv")
     minpercent = 0.1
     poctype = "zs"
     company_file = "zsmk"

@@ -37,6 +37,7 @@ funds_net_path = cwd + r"\history_data\funds_net.csv"
 funds_profit_path = cwd + r"\history_data\funds_profit.csv"
 funds_type_path = cwd + r"\history_data\funds_type.csv"
 index_net_path = cwd + r"\history_data\index_net.csv"
+index_name_path = cwd + r"\history_data\index_name.csv"
 
 
 def getFunds_Everyday(startday_str, endday_str):
@@ -216,6 +217,12 @@ def get_index_net_matrix(start_date_str, end_date_str, fill=True):
     return index_return_df
 
 
+def get_index_name(index_symbol_list):
+    index_name_raw = pd.read_csv(index_name_path, dtype="str")
+    index_name = index_name_raw[index_name_raw["symbol"].isin(index_symbol_list)]
+    return index_name
+
+
 def get_funds_type():
     funds_type_df = pd.read_csv(funds_type_path, dtype=str)
     funds_type_columns = ["ticker", "name", "fund_type"]
@@ -284,4 +291,5 @@ if __name__ == '__main__':
     start_date_str = "2017-07-01"
     end_date_str = "2017-12-10"
     index_net_df = get_index_net_matrix(start_date_str, end_date_str, fill=True)
-    print(index_net_df)
+    index_name_df = get_index_name(index_net_df.columns.tolist())
+    print(index_name_df[["symbol","ianame","iname"]])

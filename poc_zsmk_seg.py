@@ -17,28 +17,6 @@ import zsmk_util as zsmk
 import datetime as datetime
 
 
-def get_ZScom_by_var(return_df, riskfree, typenum, minpercent):
-    type_weight_list = []
-    log_return_df = np.log(return_df / return_df.shift(1))
-    nod = len(log_return_df)
-    type_list = log_return_df.columns.tolist()
-    nof = len(type_list)
-    optsharp_free = mpt.MK_MaxSharp(nof, log_return_df, nod, riskfree)
-    optvar_free = mpt.MK_MinVariance(nof, log_return_df, nod, riskfree)
-    target_var = np.linspace(mpt.statistics(log_return_df, optvar_free['x'], nod, riskfree)[1],
-                             mpt.statistics(log_return_df, optsharp_free['x'], nod, riskfree)[1], typenum-1)
-    target_ret = []
-    index = 0
-    for var in target_var:
-        index += 1
-        res = mpt.MK_MaxSharp_with_Var(nof, log_return_df, nod, riskfree, var, minpercent)
-        type_weight_list.append(res['x'])
-        target_ret.append(mpt.statistics(log_return_df, res['x'], nod, riskfree)[0])
-        # print(res['x'])
-        # print(mpt.statistics(return_df, res['x'], nod, riskfree))
-    return type_weight_list, target_ret, target_var
-
-
 def get_ZScom_for_users(user_detail_df, datelist_out, days_before, funds_profit_df, funds_net_df, riskfree,
                         minpercent, change_return, symbolstr):
     '''
@@ -80,43 +58,33 @@ def get_ZScom_for_users(user_detail_df, datelist_out, days_before, funds_profit_
             count = 0
             current_return = 0.0
             combination_df_inside = pd.DataFrame(columns=["userid", "date", "ticker", "name", "percent", "type"])
+            old_funds_weight_dic = {}
             for endday_str in datelist_out:
                 count += 1
                 # 回测的时候每天都检测太慢了，每20天检测一次
                 if count % 30 == 0:
+                    if not bool(old_funds_weight_dic):
+                        pass
+                    else:
+                        current_return = zsmk.get_return_by_combination(old_funds_weight_dic, datelist_out[0], endday_str,
+                                                                funds_net_df)
                     datelist_inside = rl.dateRange_daysbefore(endday_str, days_before)
                     startday_str = datelist_inside[0]
                     print(endday_str)
                     type_return_avg_pass_df = type_return_avg_df.ix[
                                               startday_str.replace("-", ""):endday_str.replace("-", "")]
                     log_return_df = np.log(type_return_avg_pass_df / type_return_avg_pass_df.shift(1))
-                    type_weight_list, target_ret, target_var = get_ZScom_by_var(type_return_avg_pass_df, riskfree,
-                                                                                type_num, minpercent)
+                    type_weight_list, target_ret, target_var = zsmk.get_ZScom_by_var(type_return_avg_pass_df, riskfree,
+                                                                                     type_num, minpercent)
                     type_fundticker_dic, selected_fund_list = fs.funds_select_for_type(funds_net_df, fund_type_list,
                                                                                        funds_type_df,
                                                                                        type_return_avg_pass_df,
                                                                                        funds_each_type=2,
                                                                                        selectby="corr")
-                    total_net_percent = 1.0
-                    com_index = 0
-                    if float(userriskscore) > 80:
-                        com_index = -1
-                    elif float(userriskscore) > 60:
-                        com_index = -2
-                    elif float(userriskscore) > 40:
-                        com_index = -3
-                    elif float(userriskscore) > 20:
-                        com_index = -4
-                    type_weight = type_weight_list[com_index]
-                    funds_weight_dic = {}
-                    for i in range(len(fund_type_list)):
-                        type = fund_type_list[i]
-                        fund_weight_detail = type_weight[i]
-                        funds_list = type_fundticker_dic[type]
-                        funds_num = len(funds_list)
-                        fund_weight = fund_weight_detail / funds_num
-                        for fund in funds_list:
-                            funds_weight_dic[fund] = fund_weight
+                    funds_weight_dic, total_net_percent = zsmk.get_user_fund_weight_by_risk(type_weight_list,
+                                                                                            fund_type_list,
+                                                                                            type_fundticker_dic,
+                                                                                            userriskscore)
                     new_return = zsmk.get_return_by_combination(funds_weight_dic, datelist_out[0], endday_str,
                                                                 funds_net_df)
                     if combination_df_inside.empty:
@@ -149,7 +117,8 @@ def get_ZScom_for_users(user_detail_df, datelist_out, days_before, funds_profit_
                         change_dic["risk_score"] = userriskscore
                         combination_df_inside = combination_df_inside.append(change_dic, ignore_index=True)
                         current_return = new_return
-                    elif (np.exp(new_return) - np.exp(current_return)) > change_return:
+                        old_funds_weight_dic = funds_weight_dic
+                    elif (new_return - current_return) > change_return:
                         for fund, percent in funds_weight_dic.items():
                             change_dic = {}
                             change_dic["userid"] = userid
@@ -179,6 +148,7 @@ def get_ZScom_for_users(user_detail_df, datelist_out, days_before, funds_profit_
                         change_dic["risk_type"] = userrisktype
                         change_dic["risk_score"] = userriskscore
                         combination_df_inside = combination_df_inside.append(change_dic, ignore_index=True)
+                        old_funds_weight_dic = funds_weight_dic
             zs_combination_df = zs_combination_df.append(combination_df_inside, ignore_index=True)
         elapsed = (time.clock() - start)
         time_cost += elapsed
@@ -194,12 +164,12 @@ if __name__ == '__main__':
     userid = 1
     riskfree = 0.03
     combination_startdate = "2017-08-01"
-    combination_enddate = "2017-10-29"
+    combination_enddate = "2017-12-10"
     datelist_out = rl.dateRange(combination_startdate, combination_enddate)
     funds_net_df_out = il.getZS_funds_net(fill=False)
     funds_profit_df = il.getZS_funds_Profit()
-    user_detail_df = il.getZS_users_complete(os.getcwd() + r"\history_data\zs_user_test.csv")
-    # user_detail_df = il.getZS_users_complete()
+    # user_detail_df = il.getZS_users_complete(os.getcwd() + r"\history_data\zs_user_test.csv")
+    user_detail_df = il.getZS_users_complete()
     minpercent = 0.1
     poctype = "zs"
     company_file = "zsmk"
@@ -207,6 +177,6 @@ if __name__ == '__main__':
     usercount = 0
     change_return_differ_out = 0.01
     date_count = 0
-    symbolstr = "test"
+    symbolstr = "zsmk_var_diff"
     get_ZScom_for_users(user_detail_df, datelist_out, days_before, funds_profit_df, funds_net_df_out, riskfree,
                         minpercent, change_return_differ_out, symbolstr)
