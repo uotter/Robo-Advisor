@@ -41,11 +41,12 @@ def getMoneyFund_Net(startdate, enddate, ticker):
     return 1 + total_earn / 10000
 
 
-def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_names_sta, lastdate_str, symbolstr):
+def poc_sta_combine(user_inside, startday_str_sta, endday_str_sta, poctype, company_file_names_sta, lastdate_str,
+                    symbolstr):
     '''
         计算不同厂家给出的配置计算收益率和标准差明细
     '''
-    user_poc_sta = users.copy()
+    user_poc_sta = user_inside.copy()
     ini_money = user_poc_sta.pop("moneyamount")
     ini_money = ini_money.map(lambda x: float(x) * 10000)
     user_sta = pd.DataFrame(index=range(0, 100))
@@ -55,7 +56,7 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
         filenames = ["", "nofee_"]
         for filename in filenames:
             company_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + filename + symbolstr + "_" + poctype + "_till" + lastdate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_" + filename + poctype + "_till" + lastdate_str + ".csv")
 
             company_df = company_df1.ix[:, 1:]
             if startday_str_sta not in company_df.columns:
@@ -104,14 +105,22 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
                                          in maxdown_user_dic.keys()}
             company_maxdown_detial = pd.Series(maxdown_user_dic_positive)
             user_sta["3" + company_file + "_maxdown_" + filename] = company_maxdown_detial
-    userid_columns = [w for w in range(1, 101)]
+    # userid_columns = [w for w in range(1, 101)]
     user_sta = user_sta.T.sort_index()
-    user_sta.columns = userid_columns
+    # user_sta.columns = userid_columns
     user_sta = user_sta.T
+    user_sta = user_sta.sort_index()
+    user_poc_sta["userid"] = user_poc_sta["userid"].astype("int64")
+    user_poc_sta = user_poc_sta.sort_values(by=["userid"])
+    user_sta.insert(0, "risk_score", user_poc_sta["risk_score"])
+    user_sta.insert(0, "risk_type", user_poc_sta["risk_type"])
+    user_sta.insert(0, "userid", user_poc_sta["userid"])
+    user_sta = user_sta.sort_values(by=["risk_type", "risk_score"])
+    company_join_str = "_".join(company_file_names_sta)
     user_sta.to_csv(
-        il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + symbolstr + "_" + poctype + ".csv")
+        il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + "_" + company_join_str + ".csv")
     print("File saved:",
-          il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + symbolstr + "_" + poctype + ".csv")
+          il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + "_" + company_join_str + ".csv")
     print(user_sta)
 
 
@@ -317,9 +326,9 @@ def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names
         user_df = oldusers_df.copy()
         try:
             company_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + "_till" + formaldate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_till" + formaldate_str + ".csv")
             company_nofee_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + "_" + poctype + "_till" + formaldate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_till" + formaldate_str + ".csv")
             company_df = company_df1.ix[:, 1:]
             company_nofee_df = company_nofee_df1.ix[:, 1:]
             user_df = user_df.sort_values(by=["userid"])
@@ -346,7 +355,7 @@ def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names
     return users_info_dic
 
 
-def company_detail_concat(formaldate_str, company_file_names_list, poctype, lastdate_str,symbolstr):
+def company_detail_concat(formaldate_str, company_file_names_list, poctype, lastdate_str, symbolstr):
     '''
         连接所有用户的每日市值表格
     '''
@@ -354,18 +363,18 @@ def company_detail_concat(formaldate_str, company_file_names_list, poctype, last
     for company_file in company_file_names_list:
         try:
             company_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + "_till" + formaldate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_till" + formaldate_str + ".csv")
             company_df2 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
             company_return_yuan[company_file] = pd.Series(company_df2.iloc[:, -1].values.tolist()) - pd.Series(
                 company_df2.iloc[:, 1].values.tolist())
             company_df1 = company_df1.ix[:, 1:]
             company_df2 = company_df2.ix[:, 1:]
             company_df = pd.concat([company_df1, company_df2], axis=1)
             company_nofee_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + "_" + poctype + "_till" + formaldate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_till" + formaldate_str + ".csv")
             company_nofee_df2 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
             company_return_yuan[company_file + "_nofee"] = pd.Series(
                 company_nofee_df2.iloc[:, -1].values.tolist()) - pd.Series(
                 company_nofee_df2.iloc[:, 1].values.tolist())
@@ -374,25 +383,25 @@ def company_detail_concat(formaldate_str, company_file_names_list, poctype, last
             company_nofee_df = pd.concat([company_nofee_df1, company_nofee_df2], axis=1)
         except:
             company_df = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
             company_nofee_df = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         company_df.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + "_till" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + "_till" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
         company_nofee_df.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + "_" + poctype + "_till" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + "_" + poctype + "_till" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
     userid_columns = [w for w in range(1, 101)]
     company_return_yuan = company_return_yuan.T
     company_return_yuan.columns = userid_columns
     company_return_yuan = company_return_yuan.T
     company_return_yuan.to_csv(
-        il.cwd + r"\result\\result_combine_return_value_" + symbolstr + "_" + poctype + "_till" + lastdate_str + ".csv")
+        il.cwd + r"\result\\result_combine_return_value_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
     print("File saved:",
-          il.cwd + r"\result\\result_combine_return_value_" + symbolstr + "_" + poctype + "_till" + lastdate_str + ".csv")
+          il.cwd + r"\result\\result_combine_return_value_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
     return True
 
 
@@ -499,19 +508,19 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside_dic
             print("Time Left Estimated (min):", str(((time_cost / (int(count))) * len(users_inside) - time_cost) / 60))
         lastdate_str = datelist_in_poc_compute[-1]
         company_detial.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         company_detial_nofee.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         company_detial_net.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_net_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_result_combine_net_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_net_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_result_combine_net_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         file = open(
-            il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + symbolstr + "_" + poctype + "_" + lastdate_str + ".txt",
+            il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + symbolstr + poctype + "_" + lastdate_str + ".txt",
             'w')
         file.write("funds_not_include" + '\r\n')
         file.write(str(set(funds_not_include)) + '\r\n')
@@ -524,14 +533,15 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside_dic
 
 if __name__ == '__main__':
     poctype_out_list = ["zs"]
-    symbolstr = "zsmk_var_diff"
+    symbolstr = ""
+    users_inside = il.getZS_users_complete()
     for poctype_out in poctype_out_list:
         # company_file_names_poc = ["zsmk"]
-        company_file_names_poc = ["zsmk"]
+        company_file_names_poc = ["varindex-90-0.1-changetest","varindex-90-0.1-changetest1","varindex-90-0.1-total"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
         # date_pairs = [("2017-10-30", "2017-11-05"),("2017-11-06", "2017-11-12"),("2017-11-13", "2017-11-19"),("2017-11-20", "2017-11-26"), ("2017-11-27", "2017-12-03"), ("2017-12-04", "2017-12-10")]
-        date_pairs = [("2017-07-01", "2017-10-30"),("2017-10-30", "2017-12-10")]
+        date_pairs = [("2017-07-01", "2017-12-10"), ("2017-07-01", "2017-10-29"), ("2017-10-30", "2017-12-10")]
         startdate_poc = "2017-10-29"
         enddate_poc = "2017-12-10"
         # date_pairs = [(startdate_poc, enddate_poc)]
@@ -541,4 +551,5 @@ if __name__ == '__main__':
         # poc_detail_compute_combine(company_file_names_poc, poctype_out, users_dic_real, datelist_in_poc_compute,symbolstr)
         # company_detail_concat(startdate_poc, company_file_names_poc, poctype_out, enddate_poc,symbolstr)
         for startday_str_sta, endday_str_sta in date_pairs:
-            poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc, enddate_poc,symbolstr)
+            poc_sta_combine(users_inside, startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc,
+                            enddate_poc, symbolstr)

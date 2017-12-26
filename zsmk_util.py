@@ -80,15 +80,18 @@ def get_ZScom_by_var(return_df, riskfree, typenum, minpercent):
     target_var = np.linspace(mpt.statistics(log_return_df, optvar_free['x'], nod, riskfree)[1],
                              mpt.statistics(log_return_df, optsharp_free['x'], nod, riskfree)[1], typenum - 1)
     target_ret = []
+    target_var_new = []
     index = 0
     for var in target_var:
         index += 1
         res = mpt.MK_MaxSharp_with_Var(nof, log_return_df, nod, riskfree, var, minpercent)
         type_weight_list.append(res['x'])
         target_ret.append(mpt.statistics(log_return_df, res['x'], nod, riskfree)[0])
+        target_var_new.append(mpt.statistics(log_return_df, res['x'], nod, riskfree)[1])
         # print(res['x'])
         # print(mpt.statistics(return_df, res['x'], nod, riskfree))
-    return type_weight_list, target_ret, target_var
+    # type_weight_list[index-1] = optsharp_free['x']
+    return type_weight_list, target_ret, target_var_new
 
 
 def get_user_fund_weight_by_risk(type_weight_list, fund_type_list, type_fundticker_dic, userriskscore):
@@ -98,13 +101,13 @@ def get_user_fund_weight_by_risk(type_weight_list, fund_type_list, type_fundtick
         com_index = -1
     elif float(userriskscore) > 60:
         com_index = -2
-        total_net_percent = float(userriskscore) / 100.0
+        # total_net_percent = float(userriskscore) * 1.2 / 100.0
     elif float(userriskscore) > 40:
         com_index = -3
-        total_net_percent = float(userriskscore) / 100.0
+        # total_net_percent = float(userriskscore) * 1.2 / 100.0
     elif float(userriskscore) > 20:
         com_index = -4
-        total_net_percent = float(userriskscore) / 100.0
+        # total_net_percent = float(userriskscore) * 1.2 / 100.0
     type_weight = type_weight_list[com_index]
     funds_weight_dic = {}
     for i in range(len(fund_type_list)):
@@ -116,3 +119,97 @@ def get_user_fund_weight_by_risk(type_weight_list, fund_type_list, type_fundtick
         for fund in funds_list:
             funds_weight_dic[fund] = fund_weight
     return funds_weight_dic, total_net_percent
+
+
+def get_user_fund_weight_by_bunds(bunds, return_df, riskfree, type_fundticker_dic, fund_type_list):
+    total_net_percent = 1.0
+    log_return_df = np.log(return_df / return_df.shift(1))
+    nod = len(log_return_df)
+    type_list = log_return_df.columns.tolist()
+    nof = len(type_list)
+    opts = mpt.MK_MaxSharp_with_bnds(nof, log_return_df, nod, riskfree, bunds)
+    type_list = log_return_df.columns.tolist()
+    funds_weight_dic = {}
+    for i in range(len(fund_type_list)):
+        type = fund_type_list[i]
+        fund_weight_detail = opts['x'][i]
+        funds_list = type_fundticker_dic[type]
+        funds_num = len(funds_list)
+        fund_weight = fund_weight_detail / funds_num
+        for fund in funds_list:
+            funds_weight_dic[fund] = fund_weight
+    return funds_weight_dic, total_net_percent
+
+
+def get_user_bnds(return_df, user_row, minpercent=0.1):
+    log_return_df = np.log(return_df / return_df.shift(1))
+    nod = len(log_return_df)
+    type_list = log_return_df.columns.tolist()
+    nof = len(type_list)
+    userriskscore = user_row["risk_score"]
+    userrisktype = user_row["risk_type"]
+    riskscore_start = 20
+    riskscore_end = 100
+    log_return_df_des = log_return_df.describe()
+    log_return_df_std = log_return_df_des.T.sort_values(by=["std"])["std"]
+    type_sorted_std_index_dic = {}
+    type_std_ratio = log_return_df_std / log_return_df_std.max()
+    type_std_score = riskscore_start + type_std_ratio * (riskscore_end - riskscore_start)
+    type_sorted_std_index_df = np.abs(float(userriskscore) - type_std_score)
+    # for type in type_list:
+    #     # type_std_index = (log_return_df_std.index.tolist()).index(type)
+    #
+    #     # type_std_score = riskscore_start + (float(type_std_index) / (len(type_list))) * (
+    #     #         riskscore_end - riskscore_start)
+    #     type_std_score = riskscore_start + type_std_ratio[type] * (riskscore_end - riskscore_start)
+    #     std_risk_ratio = np.abs(float(userriskscore) - type_std_score)
+    #     type_sorted_std_index_dic[type] = std_risk_ratio
+    # type_sorted_std_index_df = pd.Series(type_sorted_std_index_dic)
+    type_sorted_std_index_df = type_sorted_std_index_df.sort_values()
+    divide_num = len(log_return_df_std)
+    maxpercent = 1 - minpercent * (divide_num - 1)
+    up_bound_array = np.linspace(minpercent, (1 - minpercent * (divide_num - 1)), divide_num)
+    up_bound_list = up_bound_array.tolist()
+    up_bound_list.reverse()
+    bnds_list = []
+    for type in type_list:
+        # std_score_ratio_index = type_sorted_std_index_df.index.tolist().index(type)
+        # type_maxpercent = up_bound_list[std_score_ratio_index]
+        if type_sorted_std_index_df[type] == 0:
+            type_maxpercent = maxpercent
+        else:
+            type_maxpercent = 1 - (
+                    (1 - maxpercent) + (type_sorted_std_index_df[type] / (riskscore_end - riskscore_start)) * (
+                    maxpercent - minpercent))
+        bnds_list.append((minpercent, type_maxpercent))
+
+    return tuple(bnds_list)
+
+
+if __name__ == '__main__':
+    format = "%Y-%m-%d"
+    days_before = 30
+    userid = 1
+    riskfree = 0.03
+    combination_startdate = "2017-08-01"
+    combination_enddate = "2017-12-10"
+    datelist_out = rl.dateRange(combination_startdate, combination_enddate)
+    funds_net_df_out = il.getZS_funds_net(fill=False)
+    funds_profit_df = il.getZS_funds_Profit()
+    # user_detail_df = il.getZS_users_complete(os.getcwd() + r"\history_data\zs_user_test.csv")
+    user_detail_df = il.getZS_users_complete()
+    minpercent = 0.1
+    poctype = "zs"
+    company_file = "zsmk"
+    time_cost = 0
+    usercount = 0
+    change_return_differ_out = 0.01
+    date_count = 0
+    symbolstr = "zsmk_var_diff"
+    funds_type_df, fund_type_list = il.get_funds_type()
+    funds_net_df_fill = funds_net_df_out.copy()
+    funds_net_df_fill = funds_net_df_fill.fillna(method="pad")
+    funds_net_df_fill = funds_net_df_fill.fillna(method="bfill")
+    type_return_avg_df = fs.type_return_avg(funds_net_df_fill, fund_type_list, funds_type_df)
+    for index, row in user_detail_df[23:24].iterrows():
+        user_bunds = get_user_bnds(type_return_avg_df, row)

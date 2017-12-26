@@ -153,13 +153,13 @@ def funds_sta_for_type_vec(funds_net_df, fund_type_list, funds_type_df, type_ret
         funds_ticker_list_this_type = [funds_ticker_list_this_type[i] for i in range(
             len(funds_ticker_list_this_type)) if funds_ticker_list_this_type[i] in funds_net_df.columns.tolist()]
         funds_net_df_this_type = funds_net_df[funds_ticker_list_this_type]
-        funds_net_df_this_type_log_return = funds_net_df_this_type/funds_net_df_this_type.shift(1)
+        funds_net_df_this_type_log_return = funds_net_df_this_type / funds_net_df_this_type.shift(1)
         funds_net_df_this_type_des = funds_net_df_this_type_log_return.ix[1:].describe()
 
         funds_net_df_with_this_type = funds_net_df_this_type_log_return.corrwith(type_log_return_avg_df)
         fund_sta_df = funds_net_df_this_type_des.T
         fund_sta_df["corr"] = funds_net_df_with_this_type
-        fund_sta_df["sharp"] = fund_sta_df["mean"]/fund_sta_df["std"]
+        fund_sta_df["sharp"] = fund_sta_df["mean"] / fund_sta_df["std"]
 
         fund_sta_df_norm = (fund_sta_df - fund_sta_df.min()) / (fund_sta_df.max() - fund_sta_df.min())
         # print(fund_sta_df_norm)
@@ -181,12 +181,49 @@ def funds_select_for_type(funds_net_df, fund_type_list, funds_type_df, type_retu
         fund_type = key
         fund_sta_df_norm.insert(4, "corrsharp", fund_sta_df_norm["corr"] * fund_sta_df_norm["sharp"])
         fund_sta_df_norm = fund_sta_df_norm.sort_values(by=selectby, ascending=False)
+        fund_sta_df_norm = fund_sta_df_norm.head(5)
+        fund_sta_df_norm = fund_sta_df_norm.sort_values(by=["sharp"], ascending=False)
         # print(fund_sta_df_norm)
         type_fundticker_dic[fund_type] = fund_sta_df_norm[
                                          :funds_each_type if funds_each_type <= len(fund_sta_df_norm) else len(
                                              fund_sta_df_norm)].index.values.tolist()
         selected_fund_list.extend(type_fundticker_dic[fund_type])
     return type_fundticker_dic, selected_fund_list
+
+
+def funds_sta_for_index_vec(funds_net_df, type_return_avg_df):
+    fund_index_sta_df = pd.DataFrame(index=funds_net_df.columns.tolist())
+    index_name_list = type_return_avg_df.columns.tolist()
+    log_type_return_avg_df = np.log(type_return_avg_df / type_return_avg_df.shift(1))
+    log_funds_net_df = np.log(funds_net_df / funds_net_df.shift(1))
+    for index_name in index_name_list:
+        index_se = log_type_return_avg_df[index_name]
+        fund_index_corr_se = log_funds_net_df.corrwith(index_se)
+        fund_index_sta_df.insert(0, index_name, fund_index_corr_se)
+    return fund_index_sta_df
+
+
+def funds_select_for_index(funds_net_df, type_return_avg_df, funds_each_type=1):
+    fund_index_sta_df = funds_sta_for_index_vec(funds_net_df, type_return_avg_df)
+    funds_net_df_des = funds_net_df.describe().T
+    index_list = type_return_avg_df.columns.tolist()
+    fund_sta_df = pd.DataFrame(columns=["return", "var", "sharp"])
+    fund_sta_df["return"] = funds_net_df_des["mean"]
+    fund_sta_df["var"] = funds_net_df_des["std"]
+    fund_sta_df["sharp"] = funds_net_df_des["mean"] / funds_net_df_des["std"]
+    fund_index_sta_df = pd.concat([fund_index_sta_df,fund_sta_df],axis=1)
+    fund_sta_df_norm = (fund_index_sta_df - fund_index_sta_df.min()) / (fund_index_sta_df.max() - fund_index_sta_df.min())
+    type_fundticker_dic = {}
+    selected_fund_list = []
+    for index in index_list:
+        fund_sta_df_norm = fund_sta_df_norm.sort_values(by=[index],ascending=False)
+        fund_sta_df_norm_nearest = fund_sta_df_norm.head(5)
+        # fund_sta_df_norm_nearest = fund_sta_df_norm_nearest.sort_values(by=["sharp"], ascending=False)
+        type_fundticker_dic[index] = fund_sta_df_norm_nearest[
+                                         :funds_each_type if funds_each_type <= len(fund_sta_df_norm_nearest) else len(
+                                             fund_sta_df_norm_nearest)].index.values.tolist()
+        selected_fund_list.extend(type_fundticker_dic[index])
+    return type_fundticker_dic,selected_fund_list
 
 
 def type_return_avg(funds_net_df, fund_type_list, funds_type_df):

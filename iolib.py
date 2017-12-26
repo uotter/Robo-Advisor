@@ -38,6 +38,14 @@ funds_profit_path = cwd + r"\history_data\funds_profit.csv"
 funds_type_path = cwd + r"\history_data\funds_type.csv"
 index_net_path = cwd + r"\history_data\index_net.csv"
 index_name_path = cwd + r"\history_data\index_name.csv"
+funds_net_total_path = cwd + r"\history_data\funds_net_total.csv"
+wind_index_net_path_part = cwd + r"\history_data\wind_index_net_"
+wind_index_name_path = cwd + r"\history_data\wind_index_name.xls"
+wind_index_dic = {"098": "标普中国A股综合指数", "003": "恒生指数", "S4575112": "标普100指数", "S4359423": "道琼斯美国石油和天然气指数",
+                  "S3641030": "纳斯达克100指数", "S4503551": "中债高收益中期票据全价(总值)指数", "S5132141": "中债-中国高等级债券指数"}
+# wind_index_dic = {"098": "标普中国A股综合指数", "S4575112": "标普100指数", "S4359423": "道琼斯美国石油和天然气指数",
+#                   "S3641030": "纳斯达克100指数","S4503551":"中债高收益中期票据全价(总值)指数","S5132141":"中债-中国高等级债券指数"}
+wind_index_list = ["S12425", "011", "S4075674", "S5132141", "S4503551", "S3752717", "G3599466", "S5097351"]
 
 
 def getFunds_Everyday(startday_str, endday_str):
@@ -124,8 +132,8 @@ def getZS_Company_combination_by_excel(file_path):
         读取公司的组合配置结果
     '''
     funds_combination_raw = pd.read_excel(file_path, dtype=str)
-    combination_columns_old = ["userid", "date", "ticker", "name", "percent","type"]
-    combination_columns_new = ["userid", "date", "ticker", "name", "percent","risk_score","risk_type","type"]
+    combination_columns_old = ["userid", "date", "ticker", "name", "percent", "type"]
+    combination_columns_new = ["userid", "date", "ticker", "name", "percent", "risk_score", "risk_type", "type"]
     try:
         funds_combination_raw.columns = combination_columns_old
     except:
@@ -151,10 +159,26 @@ def getFunds_Net():
     '''
         读取公募基金的每日净值数据
     '''
-    funds_net_raw = pd.read_csv(funds_net_path, dtype=str)
+    funds_net_raw = pd.read_csv(funds_net_total_path, dtype=str)
+    zs_net_columns_total = ["ticker", "date", "net", "net_total"]
     zs_net_columns = ["ticker", "date", "net"]
-    funds_net_raw.columns = zs_net_columns
-    return funds_net_raw
+    funds_net_raw.columns = zs_net_columns_total
+    funds_net = funds_net_raw.drop_duplicates(['ticker', 'date'])
+    funds_net = funds_net.sort_values(by=['ticker', 'date'], axis=0, ascending=True)
+    return funds_net[zs_net_columns]
+
+
+def getFunds_Net_Total():
+    '''
+        读取公募基金的每日净值数据
+    '''
+    funds_net_raw = pd.read_csv(funds_net_total_path, dtype=str)
+    zs_net_columns_total = ["ticker", "date", "net", "net_total"]
+    zs_net_columns = ["ticker", "date", "net"]
+    funds_net_raw.columns = zs_net_columns_total
+    funds_net = funds_net_raw.drop_duplicates(['ticker', 'date'])
+    funds_net = funds_net.sort_values(by=['ticker', 'date'], axis=0, ascending=True)
+    return funds_net
 
 
 def getFunds_Profit():
@@ -179,7 +203,7 @@ def getZS_users():
     return user_money_df
 
 
-def getZS_users_complete(users_file_path = users_path):
+def getZS_users_complete(users_file_path=users_path):
     '''
         读取用户列表
     '''
@@ -217,9 +241,40 @@ def get_index_net_matrix(start_date_str, end_date_str, fill=True):
     return index_return_df
 
 
+def get_wind_index_net_matrix(start_date_str, end_date_str, fill=True, yearstr="2017"):
+    index_return_df = pd.DataFrame()
+    datelist = rl.dateRange(start_date_str, end_date_str)
+    datelist_noconnect = [w.replace("-", "") for w in datelist]
+    index_net_raw = pd.read_csv(wind_index_net_path_part + yearstr + ".csv", dtype="str")
+    index_net = index_net_raw[["f1_1288", "f2_1288", "f3_1288"]]
+    index_net_columns = ["symbol", "mcap", "date"]
+    index_net.columns = index_net_columns
+    index_net = index_net.drop_duplicates(["symbol", "date"])
+    index_net = index_net[index_net["symbol"].isin(wind_index_dic.keys())]
+    index_net = index_net[index_net["date"].isin(datelist_noconnect)]
+    index_symbol_list = list(set(index_net["symbol"].values.tolist()))
+    for symbol in index_symbol_list:
+        sub_index_df = index_net[index_net["symbol"] == symbol]
+        sub_index_df = sub_index_df.set_index("date")
+        sub_index_mcap_df = sub_index_df["mcap"].astype('float64')
+        # print(sub_index_mcap_df[sub_index_mcap_df.index.duplicated()])
+        index_return_df.insert(0, wind_index_dic[symbol], sub_index_mcap_df)
+    index_return_df = index_return_df.sort_index()
+    if fill:
+        index_return_df = index_return_df.fillna(method="pad")
+        index_return_df = index_return_df.fillna(method="bfill")
+    return index_return_df
+
+
 def get_index_name(index_symbol_list):
     index_name_raw = pd.read_csv(index_name_path, dtype="str")
     index_name = index_name_raw[index_name_raw["symbol"].isin(index_symbol_list)]
+    return index_name
+
+
+def get_wind_index_name(index_symbol_list):
+    index_name_raw = pd.read_excel(wind_index_name_path, dtype="str")
+    index_name = index_name_raw[index_name_raw["f2_1289"].isin(index_symbol_list)]
     return index_name
 
 
@@ -235,7 +290,7 @@ def get_funds_type():
     return funds_type_df, fund_type_list
 
 
-def getZS_funds_net(fill=True):
+def getZS_funds_net(fill=True, year="2017"):
     '''
         读取浙商代销的所有基金的每日净值
         :param fill: 是否填充空缺值 boolean
@@ -253,7 +308,10 @@ def getZS_funds_net(fill=True):
                 fund_net_ticker = funds_net_raw[funds_net_raw["ticker"] == fund_ticker]
                 fund_net_ticker = fund_net_ticker.drop_duplicates("date")
                 fund_net_ticker = fund_net_ticker.set_index("date")
-                funds_net[fund_ticker] = fund_net_ticker["net"].astype('float64')
+                if fund_net_ticker.count()["net"] > 200:
+                    funds_net[fund_ticker] = fund_net_ticker["net"].astype('float64')
+                else:
+                    print("Not enough data:" + fund_ticker)
             except ValueError as e:
                 print(fund_ticker)
     funds_net = funds_net.sort_index()
@@ -288,8 +346,10 @@ def getZS_funds_Profit():
 
 
 if __name__ == '__main__':
-    start_date_str = "2017-07-01"
+    start_date_str = "2017-01-01"
     end_date_str = "2017-12-10"
-    index_net_df = get_index_net_matrix(start_date_str, end_date_str, fill=True)
-    index_name_df = get_index_name(index_net_df.columns.tolist())
-    print(index_name_df[["symbol","ianame","iname"]])
+    index_net_df = get_wind_index_net_matrix(start_date_str, end_date_str, fill=True)
+    index_name_df = get_wind_index_name(index_net_df.columns.tolist())
+    print(index_net_df)
+    # index_name_df.to_csv(cwd + r"\result\index_with_values.csv")
+    print(index_name_df[["f1_1289", "f2_1289", "ob_object_name_1289"]])

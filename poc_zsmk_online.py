@@ -96,7 +96,7 @@ def get_ZScom_online(user_detail_df, company_combination, current_date, daysbefo
                     user_combination_cp.loc[index, "type"] = fund_type
             zs_combination_df = zs_combination_df.append(user_combination_cp)
 
-            if userrisktype == "保守型":
+            if userrisktype == "0保守型":
                 pass
             else:
                 # 找到用户当前的组合配置
