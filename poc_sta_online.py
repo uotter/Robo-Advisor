@@ -317,11 +317,73 @@ def buy_funds_combine(user_combination_date, date, usermoney, usermoney_nofee, p
     return user_funds_hold, user_funds_hold_nofee, leftusermoney, leftusermoney_nofee, user_funds_percent, net_temp, fund_fee_total, funds_not_include, funds_no_netdata
 
 
+def buyorsell_funds_combine(date, user_funds_hold, user_funds_hold_nofee, user_funds_percent,change_amount,poctype):
+    user_marketcap_value_nofee = user_marketcap_value = 0.0
+    funds_not_include = []
+    funds_no_netdata = []
+    net_temp = 0.0
+    usermoney = usermoney_nofee = np.abs(change_amount)
+    user_combination_date = pd.DataFrame(user_funds_percent,columns=["ticker","percent"])
+    if change_amount>0:
+        user_funds_hold_change, user_funds_hold_nofee_change, leftusermoney, leftusermoney_nofee, user_funds_percent, net_temp, fund_fee_total, funds_not_include_temp, funds_no_netdata_temp = buy_funds_combine(
+            user_combination_date, date, usermoney, usermoney_nofee, poctype)
+    else:
+        user_funds_hold, user_funds_hold_nofee, user_marketcap_value, user_marketcap_value_nofee, net_temp, funds_not_include_temp, funds_no_netdata_temp = compute_funds(
+            date, user_funds_hold, user_funds_hold_nofee, user_funds_percent)
+        sell_ratio = np.abs(change_amount)/user_marketcap_value
+        user_marketcap_value, user_marketcap_value_nofee, net_temp, funds_not_include_temp, funds_no_netdata_temp = sell_funds_combine(
+            date, user_funds_hold, user_funds_hold_nofee, user_funds_percent)
+
+    for holdeticker, holdamount in user_funds_hold.items():
+        if holdeticker in funds_net["ticker"].values.tolist():
+            # 如果该基金为开放式公募基金，非货币基金
+            hold_fund_net = rl.getFundsNetNext_byTickerDate(holdeticker, date.replace("-", ""),
+                                                            funds_net,
+                                                            "%Y%m%d")
+            if hold_fund_net == 0:
+                hold_fund_net = rl.getFundsNetBefore_byTickerDate(holdeticker,
+                                                                  date.replace("-", ""),
+                                                                  funds_net, "%Y%m%d")
+            fund_marketcap = float(holdamount) * float(hold_fund_net)
+            fund_marketcap_nofee = float(user_funds_hold_nofee[holdeticker]) * float(hold_fund_net)
+            fund_fee_ratio_df = zs_funds_fee[zs_funds_fee['ticker'] == holdeticker]
+            if fund_fee_ratio_df.empty:
+                # 找不到费率，说明这个基金不在我行的代销列表中
+                funds_not_include.append(holdeticker)
+            else:
+                fund_fee_ratio = fund_fee_ratio_df.iloc[0]["sellratio"]
+                fund_fee = float(fund_fee_ratio) * float(fund_marketcap)
+                # 计算基金赎回费用
+                fund_marketcap = fund_marketcap - fund_fee
+            net_temp = net_temp + hold_fund_net * user_funds_percent[holdeticker]
+        elif holdeticker in funds_profit["ticker"].values.tolist():
+            # 如果该基金是货币基金，则没有手续费，直接计算市值
+            hold_fund_net = rl.getFundsNetNext_byTickerDate(holdeticker, date.replace("-", ""),
+                                                            funds_profit,
+                                                            "%Y%m%d")
+            if hold_fund_net == 0:
+                hold_fund_net = rl.getFundsNetBefore_byTickerDate(holdeticker,
+                                                                  date.replace("-", ""),
+                                                                  funds_net, "%Y%m%d")
+            fund_marketcap = holdamount + (holdamount / 10000) * hold_fund_net
+            fund_marketcap_nofee = user_funds_hold_nofee[holdeticker] + (user_funds_hold_nofee[
+                                                                             holdeticker] / 10000) * hold_fund_net
+            moneyfund_net = getMoneyFund_Net(startday_str, date, holdeticker)
+            net_temp = net_temp + moneyfund_net * user_funds_percent[holdeticker]
+        else:
+            funds_no_netdata.append(holdeticker)
+        user_marketcap_value = user_marketcap_value + fund_marketcap
+        user_marketcap_value_nofee = user_marketcap_value_nofee + fund_marketcap_nofee
+    return user_marketcap_value, user_marketcap_value_nofee, net_temp, funds_not_include, funds_no_netdata
+
+
+
 def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names_list, poctype, symbolstr):
     '''
         读入最新的用户信息表，其中用户的资金数目会更新为最新的资产市值
     '''
     users_info_dic = {}
+    user_change_df_dic, user_changeamount_dic = il.getZS_users_change()
     for company_file in company_file_names_list:
         user_df = oldusers_df.copy()
         try:
@@ -338,9 +400,18 @@ def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names
             current_money_nofee_se = pd.Series({w: current_monye_nofee_list[0][w - 1] for w in range(1, 101)})
             user_df['userid'] = user_df['userid'].astype('int')
             user_df = user_df.set_index("userid")
-            user_df = user_df.sort_index()
             user_df.insert(0, "nofee_amount", current_money_nofee_se)
             user_df.insert(0, "fee_amount", current_money_se)
+            for key, value in user_change_df_dic.items():
+                change_date = key
+                user_change_df = value
+                for index, row in user_change_df.iterrows():
+                    add_user_id = int(row["userid"])
+                    add_user_amount = float(row["moneyamount"]) * 10000
+                    add_user_dic = {"moneyamount": float(row["moneyamount"]), "nofee_amount": add_user_amount,
+                                    "fee_amount": add_user_amount}
+                    if add_user_id not in user_df.index.tolist():
+                        user_df = user_df.append(pd.DataFrame(add_user_dic, index=[add_user_id]), ignore_index=False)
             user_df = user_df.sort_index()
             users_info_dic[company_file] = user_df
         except:
@@ -407,8 +478,9 @@ def company_detail_concat(formaldate_str, company_file_names_list, poctype, last
 
 def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside_dic, datelist_in_poc_compute, symbolstr):
     '''
-        计算不同厂家给出的配置相应的每日净值，并输出为文件
+        计算不同厂家给出的配置相应的每日净值，并输出为文件，计算时先对天循环，再对日期循环
     '''
+    user_change_df_dic, user_changeamount_dic = il.getZS_users_change()
     for company_file in company_file_names_poc:
         # 对每一个公司给出的配置情况循环
         company_df = il.getZS_Company_combination(il.cwd + r"\history_data\\" + poctype + "_" + company_file + ".csv")
@@ -440,6 +512,16 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside_dic
             for date in datelist_in_poc_compute:
                 # print("当前回测日期为" + str(date) + ".")
                 # 对回测时间段内的每一个日期循环
+                if date in user_changeamount_dic.keys():
+                    user_changeamount_inside_dic = user_changeamount_dic[date]
+                    change_amount = user_changeamount_inside_dic[userid]
+                    if not bool(user_funds_hold):
+                        usermoney = usermoney + change_amount
+                        usermoney_nofee = usermoney_nofee + change_amount
+                    else:
+                        pass
+
+
                 user_combination_date_dic, user_combination_date, buy_date = rl.getUserCombinationByDate(date,
                                                                                                          user_combination)
                 if user_combination_date.empty:
@@ -537,19 +619,19 @@ if __name__ == '__main__':
     users_inside = il.getZS_users_complete()
     for poctype_out in poctype_out_list:
         # company_file_names_poc = ["zsmk"]
-        company_file_names_poc = ["varindex-90-0.1-changetest","varindex-90-0.1-changetest1","varindex-90-0.1-total"]
+        company_file_names_poc = ["kmrd"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
         # date_pairs = [("2017-10-30", "2017-11-05"),("2017-11-06", "2017-11-12"),("2017-11-13", "2017-11-19"),("2017-11-20", "2017-11-26"), ("2017-11-27", "2017-12-03"), ("2017-12-04", "2017-12-10")]
         date_pairs = [("2017-07-01", "2017-12-10"), ("2017-07-01", "2017-10-29"), ("2017-10-30", "2017-12-10")]
-        startdate_poc = "2017-10-29"
+        startdate_poc = "2017-11-19"
         enddate_poc = "2017-12-10"
-        # date_pairs = [(startdate_poc, enddate_poc)]
-        # users_dic_real = get_updated_users_by_company(startdate_poc, users, company_file_names_poc, poctype_out,
-        #                                               symbolstr)
+        date_pairs = [(startdate_poc, enddate_poc)]
+        users_dic_real = get_updated_users_by_company(startdate_poc, users, company_file_names_poc, poctype_out,
+                                                      symbolstr)
         # datelist_in_poc_compute = rl.dateRange_endinclude(startdate_poc, enddate_poc)
         # poc_detail_compute_combine(company_file_names_poc, poctype_out, users_dic_real, datelist_in_poc_compute,symbolstr)
         # company_detail_concat(startdate_poc, company_file_names_poc, poctype_out, enddate_poc,symbolstr)
-        for startday_str_sta, endday_str_sta in date_pairs:
-            poc_sta_combine(users_inside, startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc,
-                            enddate_poc, symbolstr)
+        # for startday_str_sta, endday_str_sta in date_pairs:
+        #     poc_sta_combine(users_inside, startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc,
+        #                     enddate_poc, symbolstr)

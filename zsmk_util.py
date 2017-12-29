@@ -59,6 +59,18 @@ def get_best_moneyfundticker(endday_str, days_before, funds_profit_df, method="m
     return fund_ticker
 
 
+def test_change_by_ratio(old_type_weight_dic, type_weight_dic, ratio):
+    for key, value in old_type_weight_dic.items():
+        old_percent = value
+        new_percent = type_weight_dic[key]
+        differ = np.abs(new_percent - old_percent)
+        if differ/old_percent > ratio:
+            return True
+        else:
+            continue
+    return False
+
+
 def get_ZScom_by_var(return_df, riskfree, typenum, minpercent):
     """
         计算给定的资产库被分成typenum-1份时各个份的资产权重，实际是计算不同风险下的最优投资组合
@@ -110,15 +122,17 @@ def get_user_fund_weight_by_risk(type_weight_list, fund_type_list, type_fundtick
         # total_net_percent = float(userriskscore) * 1.2 / 100.0
     type_weight = type_weight_list[com_index]
     funds_weight_dic = {}
+    type_weight_dic = {}
     for i in range(len(fund_type_list)):
         type = fund_type_list[i]
         fund_weight_detail = type_weight[i]
         funds_list = type_fundticker_dic[type]
         funds_num = len(funds_list)
         fund_weight = fund_weight_detail / funds_num
+        type_weight_dic[type] = fund_weight_detail
         for fund in funds_list:
             funds_weight_dic[fund] = fund_weight
-    return funds_weight_dic, total_net_percent
+    return funds_weight_dic, total_net_percent, type_weight_dic
 
 
 def get_user_fund_weight_by_bunds(bunds, return_df, riskfree, type_fundticker_dic, fund_type_list):
@@ -130,15 +144,17 @@ def get_user_fund_weight_by_bunds(bunds, return_df, riskfree, type_fundticker_di
     opts = mpt.MK_MaxSharp_with_bnds(nof, log_return_df, nod, riskfree, bunds)
     type_list = log_return_df.columns.tolist()
     funds_weight_dic = {}
+    type_weight_dic = {}
     for i in range(len(fund_type_list)):
         type = fund_type_list[i]
         fund_weight_detail = opts['x'][i]
         funds_list = type_fundticker_dic[type]
         funds_num = len(funds_list)
         fund_weight = fund_weight_detail / funds_num
+        type_weight_dic[type] = fund_weight_detail
         for fund in funds_list:
             funds_weight_dic[fund] = fund_weight
-    return funds_weight_dic, total_net_percent
+    return funds_weight_dic, total_net_percent, type_weight_dic
 
 
 def get_user_bnds(return_df, user_row, minpercent=0.1):
@@ -153,18 +169,16 @@ def get_user_bnds(return_df, user_row, minpercent=0.1):
     log_return_df_des = log_return_df.describe()
     log_return_df_std = log_return_df_des.T.sort_values(by=["std"])["std"]
     type_sorted_std_index_dic = {}
-    type_std_ratio = log_return_df_std / log_return_df_std.max()
-    type_std_score = riskscore_start + type_std_ratio * (riskscore_end - riskscore_start)
-    type_sorted_std_index_df = np.abs(float(userriskscore) - type_std_score)
-    # for type in type_list:
-    #     # type_std_index = (log_return_df_std.index.tolist()).index(type)
-    #
-    #     # type_std_score = riskscore_start + (float(type_std_index) / (len(type_list))) * (
-    #     #         riskscore_end - riskscore_start)
-    #     type_std_score = riskscore_start + type_std_ratio[type] * (riskscore_end - riskscore_start)
-    #     std_risk_ratio = np.abs(float(userriskscore) - type_std_score)
-    #     type_sorted_std_index_dic[type] = std_risk_ratio
-    # type_sorted_std_index_df = pd.Series(type_sorted_std_index_dic)
+    # type_std_ratio = log_return_df_std / log_return_df_std.max()
+    # type_std_score = riskscore_start + type_std_ratio * (riskscore_end - riskscore_start)
+    # type_sorted_std_index_df = np.abs(float(userriskscore) - type_std_score)
+    for type in type_list:
+        type_std_index = (log_return_df_std.index.tolist()).index(type)
+        type_std_score = riskscore_start + (float(type_std_index) / (len(type_list))) * (
+                riskscore_end - riskscore_start)
+        std_risk_ratio = np.abs(float(userriskscore) - type_std_score)
+        type_sorted_std_index_dic[type] = std_risk_ratio
+    type_sorted_std_index_df = pd.Series(type_sorted_std_index_dic)
     type_sorted_std_index_df = type_sorted_std_index_df.sort_values()
     divide_num = len(log_return_df_std)
     maxpercent = 1 - minpercent * (divide_num - 1)
@@ -173,14 +187,14 @@ def get_user_bnds(return_df, user_row, minpercent=0.1):
     up_bound_list.reverse()
     bnds_list = []
     for type in type_list:
-        # std_score_ratio_index = type_sorted_std_index_df.index.tolist().index(type)
-        # type_maxpercent = up_bound_list[std_score_ratio_index]
-        if type_sorted_std_index_df[type] == 0:
-            type_maxpercent = maxpercent
-        else:
-            type_maxpercent = 1 - (
-                    (1 - maxpercent) + (type_sorted_std_index_df[type] / (riskscore_end - riskscore_start)) * (
-                    maxpercent - minpercent))
+        std_score_ratio_index = type_sorted_std_index_df.index.tolist().index(type)
+        type_maxpercent = up_bound_list[std_score_ratio_index]
+        # if type_sorted_std_index_df[type] == 0:
+        #     type_maxpercent = maxpercent
+        # else:
+        #     type_maxpercent = 1 - (
+        #             (1 - maxpercent) + (type_sorted_std_index_df[type] / (riskscore_end - riskscore_start)) * (
+        #             maxpercent - minpercent))
         bnds_list.append((minpercent, type_maxpercent))
 
     return tuple(bnds_list)

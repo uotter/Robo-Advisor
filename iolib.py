@@ -12,6 +12,7 @@ from pylab import *
 import robolib as rl
 import calendar
 import os
+import math as math
 
 # 设置绘图中所用的中文字体
 mpl.rcParams['font.sans-serif'] = ['simhei']
@@ -36,16 +37,19 @@ users_path = cwd + r"\history_data\zs_user.csv"
 funds_net_path = cwd + r"\history_data\funds_net.csv"
 funds_profit_path = cwd + r"\history_data\funds_profit.csv"
 funds_type_path = cwd + r"\history_data\funds_type.csv"
-index_net_path = cwd + r"\history_data\index_net.csv"
+index_net_path_part = cwd + r"\history_data\index_net_"
 index_name_path = cwd + r"\history_data\index_name.csv"
 funds_net_total_path = cwd + r"\history_data\funds_net_total.csv"
 wind_index_net_path_part = cwd + r"\history_data\wind_index_net_"
 wind_index_name_path = cwd + r"\history_data\wind_index_name.xls"
-wind_index_dic = {"098": "标普中国A股综合指数", "003": "恒生指数", "S4575112": "标普100指数", "S4359423": "道琼斯美国石油和天然气指数",
-                  "S3641030": "纳斯达克100指数", "S4503551": "中债高收益中期票据全价(总值)指数", "S5132141": "中债-中国高等级债券指数"}
+users_change_path_part = cwd + r"\history_data\zs_user_"
+wind_index_dic = {"003": "恒生指数", "S4575112": "标普100指数", "S4359423": "道琼斯美国石油和天然气指数",
+                  "S3641030": "纳斯达克100指数", "S4503551": "中债高收益中期票据全价(总值)指数", "S6420427": "中债-中国高等级债券指数"}
+caihui_index_dic = {"000300": "沪深300"}
 # wind_index_dic = {"098": "标普中国A股综合指数", "S4575112": "标普100指数", "S4359423": "道琼斯美国石油和天然气指数",
 #                   "S3641030": "纳斯达克100指数","S4503551":"中债高收益中期票据全价(总值)指数","S5132141":"中债-中国高等级债券指数"}
 wind_index_list = ["S12425", "011", "S4075674", "S5132141", "S4503551", "S3752717", "G3599466", "S5097351"]
+user_change_date_list = ["2017-11-23"]
 
 
 def getFunds_Everyday(startday_str, endday_str):
@@ -214,26 +218,57 @@ def getZS_users_complete(users_file_path=users_path):
     return user_money_df
 
 
+def getZS_users_change(user_change_date_inside_list=user_change_date_list):
+    '''
+        读取用户列表
+    '''
+    user_change_df_dic = {}
+    user_changeamount_dic = {}
+    for change_date in user_change_date_inside_list:
+        users_change_raw = pd.read_excel(users_change_path_part + change_date + ".xls", dtype=str)
+        user_money_df = users_change_raw[['客户id', '客户投资总金额（万）', '调整（新申购或加仓为正/减仓为负）', '客户风险测评总分', '客户风险偏好类型']].copy()
+        users_columns = ["userid", "moneyamount", "change_amount", "risk_score", "risk_type"]
+        user_money_df.columns = users_columns
+        user_money_df["change_amount"] = user_money_df["change_amount"].astype("float64")
+        fill_values = {'change_amount': 0}
+        user_money_df = user_money_df.fillna(value=fill_values)
+        user_changeamount_thisdate_dic = {}
+        for index, row in user_money_df.iterrows():
+            userid = int(row["userid"])
+            change_amount = float(row["change_amount"])
+            original_amount = float(row["moneyamount"])
+            if math.isnan(original_amount):
+                user_money_df.loc[index,"moneyamount"] = change_amount
+                user_money_df.loc[index,"change_amount"] = 0.0
+            user_changeamount_thisdate_dic[userid] = user_money_df.loc[index,"change_amount"].round(2)
+        user_changeamount_dic[change_date] = user_changeamount_thisdate_dic
+        user_change_df_dic[change_date] = user_money_df
+    return user_change_df_dic, user_changeamount_dic
+
+
 def get_funds_pool_bytype(typelist):
     funds = pd.read_csv(fundspool_path, dtype=str)
     funds_filter = funds[funds["类型"].isin(typelist)]
     return funds_filter
 
 
-def get_index_net_matrix(start_date_str, end_date_str, fill=True):
+def get_index_net_matrix(start_date_str, end_date_str, fill=True, yearstr="2017"):
     index_return_df = pd.DataFrame()
     datelist = rl.dateRange(start_date_str, end_date_str)
-    index_net_raw = pd.read_csv(index_net_path, dtype="str")
+    datelist_noconnect = [w.replace("-", "") for w in datelist]
+    index_net_raw = pd.read_csv(index_net_path_part + yearstr + ".csv", dtype="str")
     index_net = index_net_raw[["icode", "mcap", "tdate"]]
     index_net_columns = ["symbol", "mcap", "date"]
     index_net.columns = index_net_columns
-    index_net = index_net[index_net["date"].isin(datelist)]
+    index_net = index_net.drop_duplicates(["symbol", "date"])
+    index_net = index_net[index_net["symbol"].isin(caihui_index_dic.keys())]
+    index_net = index_net[index_net["date"].isin(datelist_noconnect)]
     index_symbol_list = list(set(index_net["symbol"].values.tolist()))
     for symbol in index_symbol_list:
         sub_index_df = index_net[index_net["symbol"] == symbol]
         sub_index_df = sub_index_df.set_index("date")
         sub_index_mcap_df = sub_index_df["mcap"].astype('float64')
-        index_return_df.insert(0, symbol, sub_index_mcap_df)
+        index_return_df.insert(0, caihui_index_dic[symbol], sub_index_mcap_df)
     index_return_df = index_return_df.sort_index()
     if fill:
         index_return_df = index_return_df.fillna(method="pad")
@@ -263,6 +298,17 @@ def get_wind_index_net_matrix(start_date_str, end_date_str, fill=True, yearstr="
     if fill:
         index_return_df = index_return_df.fillna(method="pad")
         index_return_df = index_return_df.fillna(method="bfill")
+    return index_return_df
+
+
+def get_combine_index_net_matrix(start_date_str, end_date_str, fill=True, yearstr="2017"):
+    wind_index_return_df = get_wind_index_net_matrix(start_date_str, end_date_str, fill, yearstr)
+    caihui_index_return_df = get_index_net_matrix(start_date_str, end_date_str, fill, yearstr)
+    index_return_df = pd.concat([wind_index_return_df, caihui_index_return_df], axis=1)
+    if fill:
+        index_return_df = index_return_df.fillna(method="pad")
+        index_return_df = index_return_df.fillna(method="bfill")
+    index_return_df = index_return_df.sort_index()
     return index_return_df
 
 
@@ -348,8 +394,11 @@ def getZS_funds_Profit():
 if __name__ == '__main__':
     start_date_str = "2017-01-01"
     end_date_str = "2017-12-10"
-    index_net_df = get_wind_index_net_matrix(start_date_str, end_date_str, fill=True)
-    index_name_df = get_wind_index_name(index_net_df.columns.tolist())
-    print(index_net_df)
+    # index_net_df = get_combine_index_net_matrix(start_date_str, end_date_str, fill=True)
+    # index_name_df = get_index_name(index_net_df.columns.tolist())
+    # print(index_net_df)
     # index_name_df.to_csv(cwd + r"\result\index_with_values.csv")
-    print(index_name_df[["f1_1289", "f2_1289", "ob_object_name_1289"]])
+    # print(index_name_df[["symbol","ianame","iname","memo"]])
+    user_change_df_dic, user_changeamount_dic = getZS_users_change()
+    print(user_change_df_dic["2017-11-23"])
+    print(user_changeamount_dic["2017-11-23"])

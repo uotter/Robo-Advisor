@@ -434,7 +434,7 @@ if __name__ == '__main__':
     poctype_out_list = ["zs"]
     symbolstr = ""
     for poctype_out in poctype_out_list:
-        company_file_names_poc = ["varindex-90-0.1-changetest1"]
+        company_file_names_poc = ["varindex-90-minpercnet0.1-change_return0.05-indexcombine-total"]
         # company_file_names_poc = ["kmrd", "betago", "sz"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
