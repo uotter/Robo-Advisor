@@ -64,7 +64,7 @@ def test_change_by_ratio(old_type_weight_dic, type_weight_dic, ratio):
         old_percent = value
         new_percent = type_weight_dic[key]
         differ = np.abs(new_percent - old_percent)
-        if differ/old_percent > ratio:
+        if differ / old_percent > ratio:
             return True
         else:
             continue
@@ -131,7 +131,10 @@ def get_user_fund_weight_by_risk(type_weight_list, fund_type_list, type_fundtick
         fund_weight = fund_weight_detail / funds_num
         type_weight_dic[type] = fund_weight_detail
         for fund in funds_list:
-            funds_weight_dic[fund] = fund_weight
+            if fund in funds_weight_dic.keys():
+                funds_weight_dic[fund] = funds_weight_dic[fund] + fund_weight
+            else:
+                funds_weight_dic[fund] = fund_weight
     return funds_weight_dic, total_net_percent, type_weight_dic
 
 

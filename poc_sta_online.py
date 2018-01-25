@@ -10,6 +10,7 @@ from pylab import *
 import pandas as pd
 import iolib as il
 import time as time
+import os as os
 
 zs_funds_fee = il.getZS_Funds_Fee()
 zs_funds_discount = il.getZS_Funds_discount()
@@ -47,16 +48,18 @@ def poc_sta_combine(user_inside, startday_str_sta, endday_str_sta, poctype, comp
         计算不同厂家给出的配置计算收益率和标准差明细
     '''
     user_poc_sta = user_inside.copy()
+    # if strptime(endday_str_sta, format) < strptime("2017-11-23", format):
+    #     user_poc_sta = user_poc_sta.ix[:99, :]
     ini_money = user_poc_sta.pop("moneyamount")
     ini_money = ini_money.map(lambda x: float(x) * 10000)
-    user_sta = pd.DataFrame(index=range(0, 100))
+    user_sta = pd.DataFrame(index=user_poc_sta.index)
     for company_file in company_file_names_sta:
         datelist_sta_temp = rl.dateRange(startday_str_sta, endday_str_sta)
         datelist_sta = [w for w in datelist_sta_temp if w.replace("-", "") in datelist_possible]
         filenames = ["", "nofee_"]
         for filename in filenames:
             company_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + filename + poctype + "_till" + lastdate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_" + filename + symbolstr + poctype + "_till" + lastdate_str + ".csv")
 
             company_df = company_df1.ix[:, 1:]
             if startday_str_sta not in company_df.columns:
@@ -76,15 +79,16 @@ def poc_sta_combine(user_inside, startday_str_sta, endday_str_sta, poctype, comp
             user_sta["2" + company_file + "_year_rate_" + filename] = (
                     ((company_result_this_period.iloc[-1] - company_result_this_period.iloc[0]) /
                      company_result_this_period.iloc[0]) / (len(datelist_sta_temp) / 365))
+
             # 以下计算最大回撤
             maxdown_user_dic = {}
             iloc_index = 0
             time_cost = 0
-            for index, row in company_df.T.iterrows():
-                if (iloc_index + 1) < len(company_df.T):
+            for index, row in company_result_this_period.iterrows():
+                if (iloc_index + 1) < len(company_result_this_period):
                     iloc_index += 1
                     start = time.clock()
-                    left_df = company_df.T.iloc[iloc_index:]
+                    left_df = company_result_this_period.iloc[iloc_index:]
                     left_df_describe = left_df.describe()
                     left_se_max = left_df_describe.T["min"]
                     down_se = (row - left_se_max) / row
@@ -98,13 +102,17 @@ def poc_sta_combine(user_inside, startday_str_sta, endday_str_sta, poctype, comp
                     time_cost += elapsed
                     if iloc_index % 30 == 0:
                         print(filename + company_file + " Max Down Time used:" +
-                              str(elapsed) + ", " + str(iloc_index) + "/" + str(len(company_df.T)))
+                              str(elapsed) + ", " + str(iloc_index) + "/" + str(len(company_result_this_period)))
                         print(filename + company_file + " Max Down Time Left Estimated:",
-                              (time_cost / (int(iloc_index))) * len(company_df.T) - time_cost)
+                              (time_cost / (int(iloc_index))) * len(company_result_this_period) - time_cost)
             maxdown_user_dic_positive = {w: maxdown_user_dic[w] if maxdown_user_dic[w] > 0 else 0 for w
                                          in maxdown_user_dic.keys()}
             company_maxdown_detial = pd.Series(maxdown_user_dic_positive)
             user_sta["3" + company_file + "_maxdown_" + filename] = company_maxdown_detial
+            user_sta["4" + company_file + "_sharp_ratio_" + filename] = np.log(user_sta[
+                                                                                   "2" + company_file + "_year_rate_" + filename] / \
+                                                                               user_sta[
+                                                                                   "1" + company_file + "_std_year_" + filename])
     # userid_columns = [w for w in range(1, 101)]
     user_sta = user_sta.T.sort_index()
     # user_sta.columns = userid_columns
@@ -115,13 +123,9 @@ def poc_sta_combine(user_inside, startday_str_sta, endday_str_sta, poctype, comp
     user_sta.insert(0, "risk_score", user_poc_sta["risk_score"])
     user_sta.insert(0, "risk_type", user_poc_sta["risk_type"])
     user_sta.insert(0, "userid", user_poc_sta["userid"])
+    user_sta.set_index("userid")
     user_sta = user_sta.sort_values(by=["risk_type", "risk_score"])
-    company_join_str = "_".join(company_file_names_sta)
-    user_sta.to_csv(
-        il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + "_" + company_join_str + ".csv")
-    print("File saved:",
-          il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + "_" + company_join_str + ".csv")
-    print(user_sta)
+    return user_sta
 
 
 def sell_funds_combine(date, user_funds_hold, user_funds_hold_nofee, user_funds_percent):
@@ -251,8 +255,14 @@ def buy_funds_combine(user_combination_date, date, usermoney, usermoney_nofee, p
                 user_funds_hold[fund_ticker] = 0.0
             else:
                 # 如果返回基金净值不为0，则可以按照返回的基金净值进行基金买入
-                user_funds_hold[fund_ticker] = (float(usermoney) * float(fund_percent)) / fund_net
-                user_funds_hold_nofee[fund_ticker] = (float(usermoney_nofee) * float(fund_percent)) / fund_net
+                if fund_ticker in user_funds_hold.keys():
+                    user_funds_hold[fund_ticker] = user_funds_hold[fund_ticker] + (
+                            float(usermoney) * float(fund_percent)) / fund_net
+                    user_funds_hold_nofee[fund_ticker] = user_funds_hold_nofee[fund_ticker] + (
+                            float(usermoney_nofee) * float(fund_percent)) / fund_net
+                else:
+                    user_funds_hold[fund_ticker] = (float(usermoney) * float(fund_percent)) / fund_net
+                    user_funds_hold_nofee[fund_ticker] = (float(usermoney_nofee) * float(fund_percent)) / fund_net
                 # 计算买入基金的数量
                 fund_fee_ratio_df = zs_funds_fee[zs_funds_fee['ticker'] == fund_ticker]
                 if poctype == "bs":
@@ -304,8 +314,13 @@ def buy_funds_combine(user_combination_date, date, usermoney, usermoney_nofee, p
             if fund_net == 0:
                 user_funds_hold[fund_ticker] = 0
             else:
-                user_funds_hold[fund_ticker] = float(usermoney) * float(fund_percent)
-                user_funds_hold_nofee[fund_ticker] = float(usermoney_nofee) * float(fund_percent)
+                if fund_ticker in user_funds_hold.keys():
+                    user_funds_hold[fund_ticker] = user_funds_hold[fund_ticker] + float(usermoney) * float(fund_percent)
+                    user_funds_hold_nofee[fund_ticker] = user_funds_hold_nofee[fund_ticker] + float(
+                        usermoney_nofee) * float(fund_percent)
+                else:
+                    user_funds_hold[fund_ticker] = float(usermoney) * float(fund_percent)
+                    user_funds_hold_nofee[fund_ticker] = float(usermoney_nofee) * float(fund_percent)
                 # 记录买入金额
                 leftusermoney = float(leftusermoney) - (float(usermoney) * float(fund_percent))
                 # 从剩余现金中减去买货币基金所花费的数额
@@ -317,65 +332,39 @@ def buy_funds_combine(user_combination_date, date, usermoney, usermoney_nofee, p
     return user_funds_hold, user_funds_hold_nofee, leftusermoney, leftusermoney_nofee, user_funds_percent, net_temp, fund_fee_total, funds_not_include, funds_no_netdata
 
 
-def buyorsell_funds_combine(date, user_funds_hold, user_funds_hold_nofee, user_funds_percent,change_amount,poctype):
-    user_marketcap_value_nofee = user_marketcap_value = 0.0
-    funds_not_include = []
-    funds_no_netdata = []
-    net_temp = 0.0
+def buyorsell_funds_combine(date, user_funds_hold, user_funds_hold_nofee, user_funds_percent, change_amount, poctype):
     usermoney = usermoney_nofee = np.abs(change_amount)
-    user_combination_date = pd.DataFrame(user_funds_percent,columns=["ticker","percent"])
-    if change_amount>0:
-        user_funds_hold_change, user_funds_hold_nofee_change, leftusermoney, leftusermoney_nofee, user_funds_percent, net_temp, fund_fee_total, funds_not_include_temp, funds_no_netdata_temp = buy_funds_combine(
+    user_combination_date = pd.DataFrame(user_funds_percent, index=[0]).T
+    user_combination_date = user_combination_date.reset_index()
+    user_combination_date.columns = ["ticker", "percent"]
+    if change_amount > 0:
+        user_funds_hold_change, user_funds_hold_nofee_change, leftusermoney, leftusermoney_nofee, _, net_temp, fund_fee_total, funds_not_include_temp, funds_no_netdata_temp = buy_funds_combine(
             user_combination_date, date, usermoney, usermoney_nofee, poctype)
+        return_user_funds_hold = {}
+        return_user_funds_hold_nofee = {}
+        return_leftusermoney = leftusermoney
+        return_leftusermoney_nofee = leftusermoney_nofee
+        for key, value in user_funds_hold.items():
+            return_user_funds_hold[key] = user_funds_hold[key] + user_funds_hold_change[key]
+            return_user_funds_hold_nofee[key] = user_funds_hold_nofee[key] + user_funds_hold_nofee_change[key]
     else:
         user_funds_hold, user_funds_hold_nofee, user_marketcap_value, user_marketcap_value_nofee, net_temp, funds_not_include_temp, funds_no_netdata_temp = compute_funds(
             date, user_funds_hold, user_funds_hold_nofee, user_funds_percent)
-        sell_ratio = np.abs(change_amount)/user_marketcap_value
+        sell_ratio = np.abs(change_amount) / user_marketcap_value
+        return_user_funds_hold = {}
+        return_user_funds_hold_nofee = {}
+        sell_user_funds_hold = {}
+        sell_user_funds_hold_nofee = {}
+        for key, value in user_funds_hold.items():
+            sell_user_funds_hold[key] = value * sell_ratio
+            return_user_funds_hold[key] = value * (1 - sell_ratio)
+            sell_user_funds_hold_nofee[key] = user_funds_hold_nofee[key] * sell_ratio
+            return_user_funds_hold_nofee[key] = user_funds_hold_nofee[key] * (1 - sell_ratio)
         user_marketcap_value, user_marketcap_value_nofee, net_temp, funds_not_include_temp, funds_no_netdata_temp = sell_funds_combine(
-            date, user_funds_hold, user_funds_hold_nofee, user_funds_percent)
-
-    for holdeticker, holdamount in user_funds_hold.items():
-        if holdeticker in funds_net["ticker"].values.tolist():
-            # 如果该基金为开放式公募基金，非货币基金
-            hold_fund_net = rl.getFundsNetNext_byTickerDate(holdeticker, date.replace("-", ""),
-                                                            funds_net,
-                                                            "%Y%m%d")
-            if hold_fund_net == 0:
-                hold_fund_net = rl.getFundsNetBefore_byTickerDate(holdeticker,
-                                                                  date.replace("-", ""),
-                                                                  funds_net, "%Y%m%d")
-            fund_marketcap = float(holdamount) * float(hold_fund_net)
-            fund_marketcap_nofee = float(user_funds_hold_nofee[holdeticker]) * float(hold_fund_net)
-            fund_fee_ratio_df = zs_funds_fee[zs_funds_fee['ticker'] == holdeticker]
-            if fund_fee_ratio_df.empty:
-                # 找不到费率，说明这个基金不在我行的代销列表中
-                funds_not_include.append(holdeticker)
-            else:
-                fund_fee_ratio = fund_fee_ratio_df.iloc[0]["sellratio"]
-                fund_fee = float(fund_fee_ratio) * float(fund_marketcap)
-                # 计算基金赎回费用
-                fund_marketcap = fund_marketcap - fund_fee
-            net_temp = net_temp + hold_fund_net * user_funds_percent[holdeticker]
-        elif holdeticker in funds_profit["ticker"].values.tolist():
-            # 如果该基金是货币基金，则没有手续费，直接计算市值
-            hold_fund_net = rl.getFundsNetNext_byTickerDate(holdeticker, date.replace("-", ""),
-                                                            funds_profit,
-                                                            "%Y%m%d")
-            if hold_fund_net == 0:
-                hold_fund_net = rl.getFundsNetBefore_byTickerDate(holdeticker,
-                                                                  date.replace("-", ""),
-                                                                  funds_net, "%Y%m%d")
-            fund_marketcap = holdamount + (holdamount / 10000) * hold_fund_net
-            fund_marketcap_nofee = user_funds_hold_nofee[holdeticker] + (user_funds_hold_nofee[
-                                                                             holdeticker] / 10000) * hold_fund_net
-            moneyfund_net = getMoneyFund_Net(startday_str, date, holdeticker)
-            net_temp = net_temp + moneyfund_net * user_funds_percent[holdeticker]
-        else:
-            funds_no_netdata.append(holdeticker)
-        user_marketcap_value = user_marketcap_value + fund_marketcap
-        user_marketcap_value_nofee = user_marketcap_value_nofee + fund_marketcap_nofee
-    return user_marketcap_value, user_marketcap_value_nofee, net_temp, funds_not_include, funds_no_netdata
-
+            date, sell_user_funds_hold, sell_user_funds_hold_nofee, user_funds_percent)
+        return_leftusermoney = user_marketcap_value
+        return_leftusermoney_nofee = user_marketcap_value_nofee
+    return return_user_funds_hold, return_user_funds_hold_nofee, return_leftusermoney, return_leftusermoney_nofee
 
 
 def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names_list, poctype, symbolstr):
@@ -396,12 +385,15 @@ def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names
             user_df = user_df.sort_values(by=["userid"])
             current_money_list = company_df.iloc[:, -1:].T.values.tolist()
             current_monye_nofee_list = company_nofee_df.iloc[:, -1:].T.values.tolist()
-            current_money_se = pd.Series({w: current_money_list[0][w - 1] for w in range(1, 101)})
-            current_money_nofee_se = pd.Series({w: current_monye_nofee_list[0][w - 1] for w in range(1, 101)})
+            current_money_se = pd.Series(
+                {w: current_money_list[0][w - 1] for w in range(1, len(current_money_list[0]) + 1)})
+            current_money_nofee_se = pd.Series(
+                {w: current_monye_nofee_list[0][w - 1] for w in range(1, len(current_monye_nofee_list[0]) + 1)})
             user_df['userid'] = user_df['userid'].astype('int')
             user_df = user_df.set_index("userid")
             user_df.insert(0, "nofee_amount", current_money_nofee_se)
             user_df.insert(0, "fee_amount", current_money_se)
+            user_df = user_df.ix[:len(company_df), :]
             for key, value in user_change_df_dic.items():
                 change_date = key
                 user_change_df = value
@@ -409,24 +401,30 @@ def get_updated_users_by_company(formaldate_str, oldusers_df, company_file_names
                     add_user_id = int(row["userid"])
                     add_user_amount = float(row["moneyamount"]) * 10000
                     add_user_dic = {"moneyamount": float(row["moneyamount"]), "nofee_amount": add_user_amount,
-                                    "fee_amount": add_user_amount}
-                    if add_user_id not in user_df.index.tolist():
+                                    "fee_amount": add_user_amount, "risk_score": float(row["risk_score"]),
+                                    "risk_type": row["risk_type"]}
+                    if add_user_id > 100 and add_user_id in user_df.index:
+                        user_df.loc[add_user_id, "nofee_amount"] = add_user_amount
+                        user_df.loc[add_user_id, "fee_amount"] = add_user_amount
+                        user_df.loc[add_user_id, "moneyamount"] = float(row["moneyamount"])
+                    elif add_user_id > 100 and add_user_id not in user_df.index:
                         user_df = user_df.append(pd.DataFrame(add_user_dic, index=[add_user_id]), ignore_index=False)
             user_df = user_df.sort_index()
             users_info_dic[company_file] = user_df
         except:
             pass
-    # user_money = oldusers_df.pop("moneyamount")
-    # user_df.insert(0, "nofee_amount", user_money.astype('float') * 10000)
-    # user_df.insert(0, "fee_amount", user_money.astype('float') * 10000)
-    # user_df['userid'] = user_df['userid'].astype('int')
-    # user_df = user_df.set_index("userid")
-    # user_df = user_df.sort_index()
-    # users_info_dic[company_file] = user_df
+            user_money = oldusers_df["moneyamount"].copy()
+            user_df.insert(0, "nofee_amount", user_money.astype('float') * 10000)
+            user_df.insert(0, "fee_amount", user_money.astype('float') * 10000)
+            user_df['userid'] = user_df['userid'].astype('int')
+            user_df = user_df.set_index("userid")
+            user_df = user_df.sort_index()
+            users_info_dic[company_file] = user_df
     return users_info_dic
 
 
-def company_detail_concat(formaldate_str, company_file_names_list, poctype, lastdate_str, symbolstr):
+def company_detail_concat(formaldate_str, company_file_names_list, poctype, lastdate_str, symbolstr,
+                          flag_former="total_", flag_later="unchanged_"):
     '''
         连接所有用户的每日市值表格
     '''
@@ -434,18 +432,18 @@ def company_detail_concat(formaldate_str, company_file_names_list, poctype, last
     for company_file in company_file_names_list:
         try:
             company_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_till" + formaldate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_" + flag_former + "result_combine_" + symbolstr + poctype + "_till" + formaldate_str + ".csv")
             company_df2 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_" + flag_later + "result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
             company_return_yuan[company_file] = pd.Series(company_df2.iloc[:, -1].values.tolist()) - pd.Series(
                 company_df2.iloc[:, 1].values.tolist())
             company_df1 = company_df1.ix[:, 1:]
             company_df2 = company_df2.ix[:, 1:]
             company_df = pd.concat([company_df1, company_df2], axis=1)
             company_nofee_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_till" + formaldate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_" + flag_former + "result_combine_nofee_" + symbolstr + poctype + "_till" + formaldate_str + ".csv")
             company_nofee_df2 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+                il.cwd + r"\result\\" + company_file + "_" + flag_later + "result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
             company_return_yuan[company_file + "_nofee"] = pd.Series(
                 company_nofee_df2.iloc[:, -1].values.tolist()) - pd.Series(
                 company_nofee_df2.iloc[:, 1].values.tolist())
@@ -453,19 +451,16 @@ def company_detail_concat(formaldate_str, company_file_names_list, poctype, last
             company_nofee_df2 = company_nofee_df2.ix[:, 1:]
             company_nofee_df = pd.concat([company_nofee_df1, company_nofee_df2], axis=1)
         except:
-            company_df = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
-            company_nofee_df = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+            print("Wrong concat files.")
         company_df.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_" + flag_later + "result_combine_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_" + flag_later + "result_combine_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
         company_nofee_df.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_" + flag_later + "result_combine_nofee_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
-    userid_columns = [w for w in range(1, 101)]
+              il.cwd + r"\result\\" + company_file + "_" + flag_later + "result_combine_nofee_" + symbolstr + poctype + "_till" + lastdate_str + ".csv")
+    userid_columns = [w for w in range(1, 151)]
     company_return_yuan = company_return_yuan.T
     company_return_yuan.columns = userid_columns
     company_return_yuan = company_return_yuan.T
@@ -492,6 +487,9 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside_dic
         time_cost = 0.0
         count = 0
         users_inside = users_inside_dic[company_file]
+        # 2,101-103,67,111,112
+        users_test = pd.concat(
+            [users_inside[1:2],users_inside[106:107], users_inside[86:87]], axis=0)
         for index, row in users_inside.iterrows():
             count += 1
             start = time.clock()
@@ -514,18 +512,35 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside_dic
                 # 对回测时间段内的每一个日期循环
                 if date in user_changeamount_dic.keys():
                     user_changeamount_inside_dic = user_changeamount_dic[date]
-                    change_amount = user_changeamount_inside_dic[userid]
-                    if not bool(user_funds_hold):
-                        usermoney = usermoney + change_amount
-                        usermoney_nofee = usermoney_nofee + change_amount
-                    else:
+                    change_amount = user_changeamount_inside_dic[int(userid)]
+                    if change_amount == 0:
                         pass
-
+                    else:
+                        if not bool(user_funds_hold):
+                            usermoney = usermoney + change_amount * 10000
+                            usermoney_nofee = usermoney_nofee + change_amount * 10000
+                        else:
+                            ########## 需要计算真实调仓下的情况是把下面的语句注释掉##########
+                            change_amount = 0
+                            ########## 需要计算真实调仓下的情况是把上面的语句注释掉##########
+                            user_funds_hold, user_funds_hold_nofee, _, _ = buyorsell_funds_combine(
+                                date, user_funds_hold, user_funds_hold_nofee, user_funds_percent, change_amount * 10000,
+                                poctype)
 
                 user_combination_date_dic, user_combination_date, buy_date = rl.getUserCombinationByDate(date,
                                                                                                          user_combination)
+                if user_combination_date.empty and int(userid) > 100 and strptime(date, format) >= strptime(
+                        list(user_changeamount_dic.keys())[0], format):
+                    user_same_risk_df = users_inside[users_inside["risk_type"] == row["risk_type"]]
+                    user_same_risk_id = user_same_risk_df[:1].index[0]
+                    user_combination_same_risk_df = company_df[company_df['userid'] == str(user_same_risk_id)]
+                    user_combination_date_dic, user_combination_date, buy_date = rl.getUserCombinationByDate(date,
+                                                                                                             user_combination_same_risk_df)
+                else:
+                    pass
                 if user_combination_date.empty:
-                    print("User " + userid + " has no combination on " + date + " or before.")
+                    print(
+                        "User " + userid + " and/or users with same risk have no combination on " + date + " or before.")
                 else:
                     if not bool(user_funds_hold):
                         # 如果用户持仓情况为空仓，则买入基金
@@ -590,19 +605,19 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside_dic
             print("Time Left Estimated (min):", str(((time_cost / (int(count))) * len(users_inside) - time_cost) / 60))
         lastdate_str = datelist_in_poc_compute[-1]
         company_detial.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         company_detial_nofee.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_nofee_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         company_detial_net.to_csv(
-            il.cwd + r"\result\\" + company_file + "_result_combine_net_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+            il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_net_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_net_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
+              il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_net_" + symbolstr + poctype + "_" + lastdate_str + ".csv")
         file = open(
-            il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + symbolstr + poctype + "_" + lastdate_str + ".txt",
+            il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_reg_" + symbolstr + poctype + "_" + lastdate_str + ".txt",
             'w')
         file.write("funds_not_include" + '\r\n')
         file.write(str(set(funds_not_include)) + '\r\n')
@@ -610,28 +625,56 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside_dic
         file.write(str(set(funds_no_netdata)) + '\r\n')
         file.close()
         print("File saved:",
-              il.cwd + r"\result\\" + company_file + "_result_combine_reg_" + poctype + "_" + lastdate_str + ".txt")
+              il.cwd + r"\result\\" + company_file + "_unchanged_result_combine_reg_" + poctype + "_" + lastdate_str + ".txt")
 
 
 if __name__ == '__main__':
+    cwd = os.getcwd()
     poctype_out_list = ["zs"]
-    symbolstr = ""
-    users_inside = il.getZS_users_complete()
+    symbolstr = "total_"
+    flag_str = "unchanged_"
+    users_inside = il.getZS_users_complete(cwd + r"\history_data\zs_user_change.csv")
     for poctype_out in poctype_out_list:
         # company_file_names_poc = ["zsmk"]
-        company_file_names_poc = ["kmrd"]
+        # company_file_names_poc = ["varindex-90-minpercnet0.05-change_return0.05-indexcombine2-total"]
+        company_file_names_poc = ["zsmk", "varindex-90-minpercnet0.05-change_return0.05-indexcombine2-total", "xj",
+                                  "betago", "sz", "kmrd"]
+        # company_file_names_poc = ["sz"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
         # date_pairs = [("2017-10-30", "2017-11-05"),("2017-11-06", "2017-11-12"),("2017-11-13", "2017-11-19"),("2017-11-20", "2017-11-26"), ("2017-11-27", "2017-12-03"), ("2017-12-04", "2017-12-10")]
-        date_pairs = [("2017-07-01", "2017-12-10"), ("2017-07-01", "2017-10-29"), ("2017-10-30", "2017-12-10")]
+        date_pairs = [("2017-07-01", "2018-01-14")]
         startdate_poc = "2017-11-19"
-        enddate_poc = "2017-12-10"
-        date_pairs = [(startdate_poc, enddate_poc)]
-        users_dic_real = get_updated_users_by_company(startdate_poc, users, company_file_names_poc, poctype_out,
-                                                      symbolstr)
+        enddate_poc = "2018-01-14"
+
+        # users_dic_real = get_updated_users_by_company(startdate_poc, users_inside, company_file_names_poc, poctype_out,
+        #                                               symbolstr=symbolstr)
         # datelist_in_poc_compute = rl.dateRange_endinclude(startdate_poc, enddate_poc)
-        # poc_detail_compute_combine(company_file_names_poc, poctype_out, users_dic_real, datelist_in_poc_compute,symbolstr)
-        # company_detail_concat(startdate_poc, company_file_names_poc, poctype_out, enddate_poc,symbolstr)
-        # for startday_str_sta, endday_str_sta in date_pairs:
-        #     poc_sta_combine(users_inside, startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc,
-        #                     enddate_poc, symbolstr)
+        # poc_detail_compute_combine(company_file_names_poc, poctype_out, users_dic_real, datelist_in_poc_compute,
+        #                            symbolstr)
+        # company_detail_concat(startdate_poc, company_file_names_poc, poctype_out, enddate_poc, symbolstr, "", flag_str)
+        for startday_str_sta, endday_str_sta in date_pairs:
+            if strptime(endday_str_sta, format) >= strptime("2017-11-23", format):
+                usersta1 = poc_sta_combine(users_inside.ix[:99, :], startday_str_sta, endday_str_sta, poctype_out,
+                                           company_file_names_poc,
+                                           enddate_poc, symbolstr)
+                if strptime(startday_str_sta, format) >= strptime("2017-11-27", format):
+                    usersta2 = poc_sta_combine(users_inside.ix[100:, :], startday_str_sta, endday_str_sta, poctype_out,
+                                               company_file_names_poc,
+                                               enddate_poc, symbolstr)
+                else:
+                    usersta2 = poc_sta_combine(users_inside.ix[100:, :], "2017-11-27", endday_str_sta, poctype_out,
+                                               company_file_names_poc,
+                                               enddate_poc, symbolstr)
+                user_sta = pd.concat([usersta1, usersta2], axis=0)
+
+            else:
+                user_sta = poc_sta_combine(users_inside.ix[:99, :], startday_str_sta, endday_str_sta, poctype_out,
+                                           company_file_names_poc,
+                                           enddate_poc, symbolstr)
+            company_join_str = "_".join(company_file_names_poc)
+            user_sta.to_excel(
+                il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype_out + "_" + flag_str + company_join_str + ".xls")
+            print("File saved:",
+                  il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype_out + "_" + flag_str + company_join_str + ".xls")
+            print(user_sta)

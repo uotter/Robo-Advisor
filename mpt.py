@@ -80,6 +80,7 @@ def MKOptimization_with_bnds(goalfunc, nof, return_df, nod, riskfree, bnds):
         :param goalfunc: 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
         :param nof: 组合所使用的产品数量
         :param bnds: 组合中各部分的上下限限制
+        璇玑模拟
     """
     additional_args = (return_df, nod, riskfree)
     # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下
@@ -126,6 +127,7 @@ def MK_MaxSharp_with_Var(nof, return_df, nod, riskfree,var_goal, minpercent=0):
         暴露给外部调用
         goalfunc 优化目标函数 min_sharpe：最大夏普率  min_variance：最小方差（波动率）
         nof 组合所使用的产品数量
+        商智模拟
     """
     additional_args = (return_df, nod, riskfree)
     # 约束是所有参数(权重)的总和为1。这可以用minimize函数的约定表达如下

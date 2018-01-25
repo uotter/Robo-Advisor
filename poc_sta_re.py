@@ -58,7 +58,7 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
         filenames = ["", "nofee_"]
         for filename in filenames:
             company_df1 = pd.read_csv(
-                il.cwd + r"\result\\" + company_file + "_result_combine_"  + filename + poctype + ".csv")
+                il.cwd + r"\result\\" + company_file + "_result_combine_" + filename + poctype + ".csv")
             company_df = company_df1.ix[:, 1:]
             if startday_str_sta not in company_df.columns:
                 company_df.insert(0, startday_str_sta, ini_money)
@@ -101,9 +101,9 @@ def poc_sta_combine(startday_str_sta, endday_str_sta, poctype, company_file_name
             company_maxdown_detial = pd.Series(maxdown_user_dic_positive)
             user_sta[filename + company_file + "_maxdown"] = company_maxdown_detial
     user_sta.to_csv(
-        il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_"  + poctype + ".csv")
+        il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + ".csv")
     print("File saved:",
-          il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_"  + poctype + ".csv")
+          il.cwd + r"\result\\" + startday_str_sta + "_" + endday_str_sta + "_sta_combine_" + poctype + ".csv")
     print(user_sta)
 
 
@@ -310,7 +310,7 @@ def poc_detail_compute_combine(company_file_names_poc, poctype, users_inside, sy
                 il.cwd + r"\history_data\\" + poctype + "_" + company_file + ".csv")
         except:
             company_df = il.getZS_Company_combination_by_excel(
-                il.cwd + r"\result\\" + poctype + "_" + company_file  + ".xls")
+                il.cwd + r"\result\\" + poctype + "_" + company_file + ".xls")
         company_detial = pd.DataFrame()
         company_detial_nofee = pd.DataFrame()
         company_detial_net = pd.DataFrame()
@@ -434,12 +434,13 @@ if __name__ == '__main__':
     poctype_out_list = ["zs"]
     symbolstr = ""
     for poctype_out in poctype_out_list:
-        company_file_names_poc = ["varindex-90-minpercnet0.1-change_return0.05-indexcombine-total"]
+        company_file_names_poc = ["varindex-90-minpercnet0.05-change_return0.05-indexcombine2-total",
+                                  "bdnindex-90-minpercnet0.05-change_return0.05-indexcombine2-total"]
         # company_file_names_poc = ["kmrd", "betago", "sz"]
         # date_pairs_total = [("2017-07-01", "2017-07-31"), ("2017-08-01", "2017-08-31"), ("2017-09-01", "2017-09-30"),
         #                     ("2017-10-01", "2017-10-31"), ("2017-07-01", "2017-10-31")]
-        date_pairs = [("2017-07-01", "2017-12-10"), ("2017-07-01", "2017-10-29"), ("2017-10-30", "2017-12-10")]
-        datelist_inside = rl.dateRange_endinclude("2017-07-01", "2017-12-10")
+        date_pairs = [("2017-07-01", "2017-11-19"), ("2017-07-01", "2017-10-29"), ("2017-10-30", "2017-11-19")]
+        datelist_inside = rl.dateRange_endinclude("2017-07-01", "2017-11-19")
         poc_detail_compute_combine(company_file_names_poc, poctype_out, users, symbolstr, datelist_inside)
         # for startday_str_sta, endday_str_sta in date_pairs:
         #     poc_sta_combine(startday_str_sta, endday_str_sta, poctype_out, company_file_names_poc, symbolstr)
