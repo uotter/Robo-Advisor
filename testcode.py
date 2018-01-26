@@ -14,10 +14,10 @@ endday = datetime.datetime.strptime(endday_str, '%Y-%m-%d')
 #
 # print(sort_date_shibor)
 
-# test1 = ts.get_latest_news() #默认获取最近80条新闻数据，只提供新闻类型、链接和标题
-# test2 = ts.get_latest_news(top=5,show_content=True) #显示最新5条新闻，并打印出新闻内容
+test1 = ts.get_latest_news() #默认获取最近80条新闻数据，只提供新闻类型、链接和标题
+test2 = ts.get_latest_news(top=5,show_content=True) #显示最新5条新闻，并打印出新闻内容
 
 test3 = ts.get_concept_classified()
-# print(test1)
-# print(test2)
+print(test1)
+print(test2)
 print(test3)
